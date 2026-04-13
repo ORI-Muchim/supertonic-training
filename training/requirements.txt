@@ -1,0 +1,18 @@
+# Supertonic training environment (conda env: supertonic, Python 3.11)
+# Install in a fresh conda env:
+#   conda create -n supertonic python=3.11 -y
+#   conda activate supertonic
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
+#   pip install -r training/requirements.txt
+
+numpy>=2.0
+onnx>=1.20
+onnxruntime>=1.20
+soundfile>=0.12
+librosa>=0.11
+tqdm>=4.60
+tensorboard>=2.18
+
+# PyTorch is installed separately (CUDA wheel):
+# torch==2.5.1+cu121
+# torchaudio==2.5.1+cu121
