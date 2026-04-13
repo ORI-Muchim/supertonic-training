@@ -1,0 +1,29 @@
+# vocoder.onnx
+opset: [('ai.onnx', 19)]
+ir_version: 9   producer: pytorch 2.8.0
+
+## inputs
+  latent                                    ['batch_size', 144, 'latent_length']  FLOAT
+## outputs
+  wav_tts                                   ['Reshapewav_tts_dim_0', 'Reshapewav_tts_dim_1']  FLOAT
+
+## op histogram (total 170 nodes)
+  Conv                      33
+  Mul                       31
+  Transpose                 22
+  Add                       21
+  Pad                       12
+  Div                       11
+  LayerNormalization        10
+  Erf                       10
+  Unsqueeze                 4
+  Shape                     3
+  Gather                    3
+  Concat                    3
+  Reshape                   3
+  Slice                     1
+  Squeeze                   1
+  BatchNormalization        1
+  PRelu                     1
+
+## params: 25,338,451  (101.35 MB)

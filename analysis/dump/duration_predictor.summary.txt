@@ -1,0 +1,42 @@
+# duration_predictor.onnx
+opset: [('ai.onnx', 19)]
+ir_version: 9   producer: pytorch 2.8.0
+
+## inputs
+  text_ids                                  ['batch_size', 'text_length']  INT64
+  style_dp                                  ['batch_size', 8, 16]  FLOAT
+  text_mask                                 ['batch_size', 1, 'text_length']  FLOAT
+## outputs
+  duration                                  ['Squeezeduration_dim_0']  FLOAT
+
+## op histogram (total 400 nodes)
+  Mul                       57
+  Unsqueeze                 47
+  Transpose                 37
+  Reshape                   34
+  Conv                      31
+  Concat                    28
+  Add                       27
+  Gather                    22
+  Slice                     21
+  Pad                       18
+  Shape                     12
+  Sub                       12
+  LayerNormalization        10
+  Div                       8
+  MatMul                    8
+  Erf                       6
+  Clip                      4
+  Where                     3
+  Equal                     2
+  Softmax                   2
+  Pow                       2
+  Relu                      2
+  Gemm                      2
+  ConstantOfShape           1
+  Expand                    1
+  PRelu                     1
+  Exp                       1
+  Squeeze                   1
+
+## params: 342,571  (1.37 MB)

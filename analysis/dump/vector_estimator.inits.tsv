@@ -1,0 +1,375 @@
+name	shape	dtype	nbytes	numel
+tts.ttl.vector_field.proj_in.net.weight	[512, 144, 1]	float32	294912	73728
+onnx::MatMul_3118	[256, 256]	float32	262144	65536
+onnx::MatMul_3163	[256, 256]	float32	262144	65536
+onnx::MatMul_3208	[256, 256]	float32	262144	65536
+onnx::MatMul_3253	[256, 256]	float32	262144	65536
+/Constant_output_0	[3]	int64	24	3
+/Constant_2_output_0	[]	int64	8	1
+onnx::MatMul_3102	[256, 256]	float32	262144	65536
+onnx::MatMul_3103	[256, 256]	float32	262144	65536
+onnx::ReduceSum_1279	[2]	int64	16	2
+/vector_field/main_blocks.3/attn/Constant_40_output_0	[1]	int64	8	1
+tts.ttl.vector_field.main_blocks.5.attention.W_value.linear.bias	[256]	float32	1024	256
+onnx::MatMul_3147	[256, 256]	float32	262144	65536
+onnx::MatMul_3148	[256, 256]	float32	262144	65536
+tts.ttl.vector_field.main_blocks.11.attention.W_value.linear.bias	[256]	float32	1024	256
+onnx::MatMul_3192	[256, 256]	float32	262144	65536
+onnx::MatMul_3193	[256, 256]	float32	262144	65536
+tts.ttl.vector_field.main_blocks.17.attention.W_value.linear.bias	[256]	float32	1024	256
+onnx::MatMul_3237	[256, 256]	float32	262144	65536
+onnx::MatMul_3238	[256, 256]	float32	262144	65536
+tts.ttl.vector_field.main_blocks.23.attention.W_value.linear.bias	[256]	float32	1024	256
+tts.ttl.vector_field.main_blocks.3.attn.W_key.linear.bias	[256]	float32	1024	256
+tts.ttl.vector_field.main_blocks.3.attn.W_value.linear.bias	[256]	float32	1024	256
+/vector_field/main_blocks.3/attn/Constant_15_output_0	[]	int64	8	1
+/vector_field/main_blocks.3/attn/Constant_44_output_0	[]	float32	4	1
+/vector_field/main_blocks.5/attention/Constant_6_output_0	[2]	int64	16	2
+tts.ttl.vector_field.main_blocks.9.attn.W_key.linear.bias	[256]	float32	1024	256
+tts.ttl.vector_field.main_blocks.9.attn.W_value.linear.bias	[256]	float32	1024	256
+tts.ttl.vector_field.main_blocks.15.attn.W_key.linear.bias	[256]	float32	1024	256
+tts.ttl.vector_field.main_blocks.15.attn.W_value.linear.bias	[256]	float32	1024	256
+tts.ttl.vector_field.main_blocks.21.attn.W_key.linear.bias	[256]	float32	1024	256
+tts.ttl.vector_field.main_blocks.21.attn.W_value.linear.bias	[256]	float32	1024	256
+/vector_field/time_encoder/sinusoidal/Constant_output_0	[1]	int64	8	1
+/Constant_5_output_0	[1]	int64	8	1
+/vector_field/main_blocks.3/attn/Constant_5_output_0	[4]	int64	32	4
+/vector_field/main_blocks.0/convnext.0/dwconv/Cast_output_0	[6]	int64	48	6
+tts.ttl.vector_field.main_blocks.3.attn.increments	[1, 1000, 1]	int64	8000	1000
+/vector_field/time_encoder/sinusoidal/Constant_2_output_0	[]	float32	4	1
+/Expand_output_0	[1, 50, 256]	float32	51200	12800
+tts.ttl.vector_field.main_blocks.0.convnext.0.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.0.convnext.0.dwconv.bias	[512]	float32	2048	512
+/vector_field/time_encoder/sinusoidal/Constant_3_output_0	[1, 32]	float32	128	32
+onnx::MatMul_3117	[256, 256]	float32	262144	65536
+onnx::MatMul_3162	[256, 256]	float32	262144	65536
+onnx::MatMul_3207	[256, 256]	float32	262144	65536
+onnx::MatMul_3252	[256, 256]	float32	262144	65536
+tts.ttl.vector_field.main_blocks.5.attention.W_key.linear.bias	[256]	float32	1024	256
+tts.ttl.vector_field.main_blocks.11.attention.W_key.linear.bias	[256]	float32	1024	256
+tts.ttl.vector_field.main_blocks.17.attention.W_key.linear.bias	[256]	float32	1024	256
+tts.ttl.vector_field.main_blocks.23.attention.W_key.linear.bias	[256]	float32	1024	256
+/vector_field/main_blocks.3/attn/Mul_8_output_0	[1]	int64	8	1
+/vector_field/main_blocks.3/attn/Mul_9_output_0	[1]	int64	8	1
+tts.ttl.vector_field.main_blocks.3.attn.theta	[1, 1, 32]	float32	128	32
+tts.ttl.vector_field.main_blocks.0.convnext.0.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.0.convnext.0.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.time_encoder.mlp.0.linear.weight	[256, 64]	float32	65536	16384
+tts.ttl.vector_field.time_encoder.mlp.0.linear.bias	[256]	float32	1024	256
+tts.ttl.vector_field.main_blocks.0.convnext.0.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.0.convnext.0.pwconv1.bias	[1024]	float32	4096	1024
+/vector_field/main_blocks.0/convnext.0/act/Constant_output_0	[]	float32	4	1
+tts.ttl.vector_field.time_encoder.mlp.2.linear.weight	[64, 256]	float32	65536	16384
+tts.ttl.vector_field.time_encoder.mlp.2.linear.bias	[64]	float32	256	64
+/vector_field/main_blocks.0/convnext.0/act/Constant_1_output_0	[]	float32	4	1
+/vector_field/main_blocks.0/convnext.0/act/Constant_2_output_0	[]	float32	4	1
+onnx::MatMul_3095	[64, 512]	float32	131072	32768
+onnx::MatMul_3140	[64, 512]	float32	131072	32768
+onnx::MatMul_3185	[64, 512]	float32	131072	32768
+onnx::MatMul_3230	[64, 512]	float32	131072	32768
+tts.ttl.vector_field.main_blocks.0.convnext.0.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.0.convnext.0.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.1.linear.linear.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.7.linear.linear.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.13.linear.linear.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.19.linear.linear.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.0.convnext.0.gamma	[1, 512, 1]	float32	2048	512
+/vector_field/main_blocks.0/convnext.1/dwconv/Cast_output_0	[6]	int64	48	6
+tts.ttl.vector_field.main_blocks.0.convnext.1.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.0.convnext.1.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.0.convnext.1.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.0.convnext.1.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.0.convnext.1.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.0.convnext.1.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.0.convnext.1.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.0.convnext.1.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.0.convnext.1.gamma	[1, 512, 1]	float32	2048	512
+/vector_field/main_blocks.0/convnext.2/dwconv/Cast_output_0	[6]	int64	48	6
+tts.ttl.vector_field.main_blocks.0.convnext.2.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.0.convnext.2.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.0.convnext.2.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.0.convnext.2.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.0.convnext.2.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.0.convnext.2.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.0.convnext.2.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.0.convnext.2.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.0.convnext.2.gamma	[1, 512, 1]	float32	2048	512
+/vector_field/main_blocks.0/convnext.3/dwconv/Cast_output_0	[6]	int64	48	6
+tts.ttl.vector_field.main_blocks.0.convnext.3.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.0.convnext.3.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.0.convnext.3.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.0.convnext.3.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.0.convnext.3.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.0.convnext.3.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.0.convnext.3.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.0.convnext.3.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.0.convnext.3.gamma	[1, 512, 1]	float32	2048	512
+tts.ttl.vector_field.main_blocks.2.convnext.0.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.2.convnext.0.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.2.convnext.0.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.2.convnext.0.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.2.convnext.0.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.2.convnext.0.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.2.convnext.0.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.2.convnext.0.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.2.convnext.0.gamma	[1, 512, 1]	float32	2048	512
+onnx::MatMul_3101	[512, 256]	float32	524288	131072
+tts.ttl.vector_field.main_blocks.3.attn.W_query.linear.bias	[256]	float32	1024	256
+/vector_field/main_blocks.3/attn/Constant_39_output_0	[]	float32	4	1
+/vector_field/main_blocks.3/attn/Constant_42_output_0	[]	float32	4	1
+/vector_field/main_blocks.3/attn/Constant_46_output_0	[4]	int64	32	4
+onnx::MatMul_3110	[256, 512]	float32	524288	131072
+tts.ttl.vector_field.main_blocks.3.attn.out_fc.linear.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.3.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.3.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.4.convnext.0.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.4.convnext.0.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.4.convnext.0.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.4.convnext.0.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.4.convnext.0.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.4.convnext.0.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.4.convnext.0.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.4.convnext.0.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.4.convnext.0.gamma	[1, 512, 1]	float32	2048	512
+onnx::MatMul_3116	[512, 256]	float32	524288	131072
+tts.ttl.vector_field.main_blocks.5.attention.W_query.linear.bias	[256]	float32	1024	256
+/vector_field/main_blocks.5/attention/Constant_11_output_0	[2]	int64	16	2
+onnx::MatMul_3119	[256, 512]	float32	524288	131072
+tts.ttl.vector_field.main_blocks.5.attention.out_fc.linear.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.5.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.5.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.0.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.6.convnext.0.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.0.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.0.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.0.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.6.convnext.0.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.6.convnext.0.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.6.convnext.0.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.0.gamma	[1, 512, 1]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.1.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.6.convnext.1.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.1.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.1.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.1.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.6.convnext.1.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.6.convnext.1.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.6.convnext.1.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.1.gamma	[1, 512, 1]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.2.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.6.convnext.2.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.2.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.2.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.2.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.6.convnext.2.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.6.convnext.2.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.6.convnext.2.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.2.gamma	[1, 512, 1]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.3.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.6.convnext.3.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.3.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.3.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.3.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.6.convnext.3.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.6.convnext.3.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.6.convnext.3.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.6.convnext.3.gamma	[1, 512, 1]	float32	2048	512
+tts.ttl.vector_field.main_blocks.8.convnext.0.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.8.convnext.0.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.8.convnext.0.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.8.convnext.0.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.8.convnext.0.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.8.convnext.0.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.8.convnext.0.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.8.convnext.0.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.8.convnext.0.gamma	[1, 512, 1]	float32	2048	512
+onnx::MatMul_3146	[512, 256]	float32	524288	131072
+tts.ttl.vector_field.main_blocks.9.attn.W_query.linear.bias	[256]	float32	1024	256
+onnx::MatMul_3155	[256, 512]	float32	524288	131072
+tts.ttl.vector_field.main_blocks.9.attn.out_fc.linear.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.9.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.9.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.10.convnext.0.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.10.convnext.0.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.10.convnext.0.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.10.convnext.0.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.10.convnext.0.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.10.convnext.0.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.10.convnext.0.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.10.convnext.0.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.10.convnext.0.gamma	[1, 512, 1]	float32	2048	512
+onnx::MatMul_3161	[512, 256]	float32	524288	131072
+tts.ttl.vector_field.main_blocks.11.attention.W_query.linear.bias	[256]	float32	1024	256
+onnx::MatMul_3164	[256, 512]	float32	524288	131072
+tts.ttl.vector_field.main_blocks.11.attention.out_fc.linear.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.11.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.11.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.0.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.12.convnext.0.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.0.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.0.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.0.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.12.convnext.0.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.12.convnext.0.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.12.convnext.0.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.0.gamma	[1, 512, 1]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.1.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.12.convnext.1.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.1.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.1.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.1.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.12.convnext.1.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.12.convnext.1.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.12.convnext.1.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.1.gamma	[1, 512, 1]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.2.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.12.convnext.2.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.2.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.2.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.2.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.12.convnext.2.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.12.convnext.2.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.12.convnext.2.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.2.gamma	[1, 512, 1]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.3.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.12.convnext.3.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.3.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.3.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.3.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.12.convnext.3.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.12.convnext.3.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.12.convnext.3.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.12.convnext.3.gamma	[1, 512, 1]	float32	2048	512
+tts.ttl.vector_field.main_blocks.14.convnext.0.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.14.convnext.0.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.14.convnext.0.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.14.convnext.0.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.14.convnext.0.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.14.convnext.0.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.14.convnext.0.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.14.convnext.0.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.14.convnext.0.gamma	[1, 512, 1]	float32	2048	512
+onnx::MatMul_3191	[512, 256]	float32	524288	131072
+tts.ttl.vector_field.main_blocks.15.attn.W_query.linear.bias	[256]	float32	1024	256
+onnx::MatMul_3200	[256, 512]	float32	524288	131072
+tts.ttl.vector_field.main_blocks.15.attn.out_fc.linear.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.15.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.15.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.16.convnext.0.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.16.convnext.0.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.16.convnext.0.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.16.convnext.0.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.16.convnext.0.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.16.convnext.0.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.16.convnext.0.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.16.convnext.0.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.16.convnext.0.gamma	[1, 512, 1]	float32	2048	512
+onnx::MatMul_3206	[512, 256]	float32	524288	131072
+tts.ttl.vector_field.main_blocks.17.attention.W_query.linear.bias	[256]	float32	1024	256
+onnx::MatMul_3209	[256, 512]	float32	524288	131072
+tts.ttl.vector_field.main_blocks.17.attention.out_fc.linear.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.17.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.17.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.0.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.18.convnext.0.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.0.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.0.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.0.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.18.convnext.0.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.18.convnext.0.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.18.convnext.0.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.0.gamma	[1, 512, 1]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.1.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.18.convnext.1.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.1.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.1.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.1.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.18.convnext.1.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.18.convnext.1.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.18.convnext.1.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.1.gamma	[1, 512, 1]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.2.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.18.convnext.2.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.2.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.2.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.2.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.18.convnext.2.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.18.convnext.2.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.18.convnext.2.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.2.gamma	[1, 512, 1]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.3.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.18.convnext.3.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.3.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.3.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.3.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.18.convnext.3.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.18.convnext.3.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.18.convnext.3.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.18.convnext.3.gamma	[1, 512, 1]	float32	2048	512
+tts.ttl.vector_field.main_blocks.20.convnext.0.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.20.convnext.0.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.20.convnext.0.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.20.convnext.0.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.20.convnext.0.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.20.convnext.0.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.20.convnext.0.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.20.convnext.0.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.20.convnext.0.gamma	[1, 512, 1]	float32	2048	512
+onnx::MatMul_3236	[512, 256]	float32	524288	131072
+tts.ttl.vector_field.main_blocks.21.attn.W_query.linear.bias	[256]	float32	1024	256
+onnx::MatMul_3245	[256, 512]	float32	524288	131072
+tts.ttl.vector_field.main_blocks.21.attn.out_fc.linear.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.21.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.21.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.22.convnext.0.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.main_blocks.22.convnext.0.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.22.convnext.0.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.22.convnext.0.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.22.convnext.0.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.22.convnext.0.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.main_blocks.22.convnext.0.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.main_blocks.22.convnext.0.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.22.convnext.0.gamma	[1, 512, 1]	float32	2048	512
+onnx::MatMul_3251	[512, 256]	float32	524288	131072
+tts.ttl.vector_field.main_blocks.23.attention.W_query.linear.bias	[256]	float32	1024	256
+onnx::MatMul_3254	[256, 512]	float32	524288	131072
+tts.ttl.vector_field.main_blocks.23.attention.out_fc.linear.bias	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.23.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.main_blocks.23.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.0.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.last_convnext.convnext.0.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.0.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.0.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.0.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.last_convnext.convnext.0.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.last_convnext.convnext.0.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.last_convnext.convnext.0.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.0.gamma	[1, 512, 1]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.1.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.last_convnext.convnext.1.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.1.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.1.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.1.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.last_convnext.convnext.1.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.last_convnext.convnext.1.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.last_convnext.convnext.1.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.1.gamma	[1, 512, 1]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.2.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.last_convnext.convnext.2.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.2.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.2.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.2.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.last_convnext.convnext.2.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.last_convnext.convnext.2.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.last_convnext.convnext.2.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.2.gamma	[1, 512, 1]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.3.dwconv.weight	[512, 1, 5]	float32	10240	2560
+tts.ttl.vector_field.last_convnext.convnext.3.dwconv.bias	[512]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.3.norm.norm.weight	[512]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.3.norm.norm.bias	[512]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.3.pwconv1.weight	[1024, 512, 1]	float32	2097152	524288
+tts.ttl.vector_field.last_convnext.convnext.3.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.vector_field.last_convnext.convnext.3.pwconv2.weight	[512, 1024, 1]	float32	2097152	524288
+tts.ttl.vector_field.last_convnext.convnext.3.pwconv2.bias	[512]	float32	2048	512
+tts.ttl.vector_field.last_convnext.convnext.3.gamma	[1, 512, 1]	float32	2048	512
+tts.ttl.vector_field.proj_out.net.weight	[144, 512, 1]	float32	294912	73728

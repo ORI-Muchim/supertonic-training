@@ -1,0 +1,170 @@
+name	shape	dtype	nbytes	numel
+tts.ttl.text_encoder.text_embedder.char_embedder.weight	[163, 256]	float32	166912	41728
+onnx::MatMul_3680	[256, 256]	float32	262144	65536
+onnx::MatMul_3684	[256, 256]	float32	262144	65536
+/text_encoder/attn_encoder/Constant_output_0	[1]	int64	8	1
+/text_encoder/attn_encoder/Constant_1_output_0	[1]	int64	8	1
+tts.ttl.speech_prompted_text_encoder.attention1.W_value.linear.bias	[256]	float32	1024	256
+/speech_prompted_text_encoder/attention1/Constant_10_output_0	[1]	int64	8	1
+tts.ttl.speech_prompted_text_encoder.attention2.W_value.linear.bias	[256]	float32	1024	256
+/speech_prompted_text_encoder/attention1/Constant_6_output_0	[2]	int64	16	2
+/speech_prompted_text_encoder/attention1/Constant_11_output_0	[]	float32	4	1
+/text_encoder/convnext/convnext.0/dwconv/Cast_output_0	[6]	int64	48	6
+tts.ttl.text_encoder.convnext.convnext.0.dwconv.weight	[256, 1, 5]	float32	5120	1280
+tts.ttl.text_encoder.convnext.convnext.0.dwconv.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.0.norm.norm.weight	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.0.norm.norm.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.0.pwconv1.weight	[1024, 256, 1]	float32	1048576	262144
+tts.ttl.text_encoder.convnext.convnext.0.pwconv1.bias	[1024]	float32	4096	1024
+/text_encoder/convnext/convnext.0/act/Constant_output_0	[]	float32	4	1
+/text_encoder/convnext/convnext.0/act/Constant_1_output_0	[]	float32	4	1
+/text_encoder/convnext/convnext.0/act/Constant_2_output_0	[]	float32	4	1
+tts.ttl.text_encoder.convnext.convnext.0.pwconv2.weight	[256, 1024, 1]	float32	1048576	262144
+tts.ttl.text_encoder.convnext.convnext.0.pwconv2.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.0.gamma	[1, 256, 1]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.1.dwconv.weight	[256, 1, 5]	float32	5120	1280
+tts.ttl.text_encoder.convnext.convnext.1.dwconv.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.1.norm.norm.weight	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.1.norm.norm.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.1.pwconv1.weight	[1024, 256, 1]	float32	1048576	262144
+tts.ttl.text_encoder.convnext.convnext.1.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.text_encoder.convnext.convnext.1.pwconv2.weight	[256, 1024, 1]	float32	1048576	262144
+tts.ttl.text_encoder.convnext.convnext.1.pwconv2.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.1.gamma	[1, 256, 1]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.2.dwconv.weight	[256, 1, 5]	float32	5120	1280
+tts.ttl.text_encoder.convnext.convnext.2.dwconv.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.2.norm.norm.weight	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.2.norm.norm.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.2.pwconv1.weight	[1024, 256, 1]	float32	1048576	262144
+tts.ttl.text_encoder.convnext.convnext.2.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.text_encoder.convnext.convnext.2.pwconv2.weight	[256, 1024, 1]	float32	1048576	262144
+tts.ttl.text_encoder.convnext.convnext.2.pwconv2.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.2.gamma	[1, 256, 1]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.3.dwconv.weight	[256, 1, 5]	float32	5120	1280
+tts.ttl.text_encoder.convnext.convnext.3.dwconv.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.3.norm.norm.weight	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.3.norm.norm.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.3.pwconv1.weight	[1024, 256, 1]	float32	1048576	262144
+tts.ttl.text_encoder.convnext.convnext.3.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.text_encoder.convnext.convnext.3.pwconv2.weight	[256, 1024, 1]	float32	1048576	262144
+tts.ttl.text_encoder.convnext.convnext.3.pwconv2.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.3.gamma	[1, 256, 1]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.4.dwconv.weight	[256, 1, 5]	float32	5120	1280
+tts.ttl.text_encoder.convnext.convnext.4.dwconv.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.4.norm.norm.weight	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.4.norm.norm.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.4.pwconv1.weight	[1024, 256, 1]	float32	1048576	262144
+tts.ttl.text_encoder.convnext.convnext.4.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.text_encoder.convnext.convnext.4.pwconv2.weight	[256, 1024, 1]	float32	1048576	262144
+tts.ttl.text_encoder.convnext.convnext.4.pwconv2.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.4.gamma	[1, 256, 1]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.5.dwconv.weight	[256, 1, 5]	float32	5120	1280
+tts.ttl.text_encoder.convnext.convnext.5.dwconv.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.5.norm.norm.weight	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.5.norm.norm.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.5.pwconv1.weight	[1024, 256, 1]	float32	1048576	262144
+tts.ttl.text_encoder.convnext.convnext.5.pwconv1.bias	[1024]	float32	4096	1024
+tts.ttl.text_encoder.convnext.convnext.5.pwconv2.weight	[256, 1024, 1]	float32	1048576	262144
+tts.ttl.text_encoder.convnext.convnext.5.pwconv2.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.convnext.convnext.5.gamma	[1, 256, 1]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.attn_layers.0.conv_q.weight	[256, 256, 1]	float32	262144	65536
+tts.ttl.text_encoder.attn_encoder.attn_layers.0.conv_q.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.attn_layers.0.conv_k.weight	[256, 256, 1]	float32	262144	65536
+tts.ttl.text_encoder.attn_encoder.attn_layers.0.conv_k.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.attn_layers.0.conv_v.weight	[256, 256, 1]	float32	262144	65536
+tts.ttl.text_encoder.attn_encoder.attn_layers.0.conv_v.bias	[256]	float32	1024	256
+/text_encoder/attn_encoder/attn_layers.0/Constant_output_0	[]	int64	8	1
+/text_encoder/attn_encoder/attn_layers.0/Constant_2_output_0	[]	int64	8	1
+/text_encoder/attn_encoder/attn_layers.0/Constant_11_output_0	[]	int64	8	1
+/text_encoder/attn_encoder/attn_layers.0/Constant_4_output_0	[1]	int64	8	1
+/text_encoder/attn_encoder/attn_layers.0/Constant_5_output_0	[1]	int64	8	1
+/text_encoder/attn_encoder/attn_layers.0/Unsqueeze_43_output_0	[1]	int64	8	1
+/text_encoder/attn_encoder/attn_layers.0/Constant_16_output_0	[]	int64	8	1
+/text_encoder/attn_encoder/attn_layers.0/Constant_10_output_0	[]	float32	4	1
+/text_encoder/attn_encoder/attn_layers.0/Constant_35_output_0	[2]	int64	16	2
+/text_encoder/attn_encoder/attn_layers.0/Constant_38_output_0	[1]	int64	8	1
+tts.ttl.text_encoder.attn_encoder.attn_layers.0.emb_rel_k	[1, 9, 64]	float32	2304	576
+tts.ttl.text_encoder.attn_encoder.attn_layers.0.emb_rel_v	[1, 9, 64]	float32	2304	576
+/text_encoder/attn_encoder/attn_layers.0/Constant_41_output_0	[1]	int64	8	1
+/text_encoder/attn_encoder/attn_layers.0/Cast_2_output_0	[8]	int64	64	8
+/text_encoder/attn_encoder/attn_layers.0/Constant_85_output_0	[1]	int64	8	1
+/text_encoder/attn_encoder/attn_layers.0/Constant_83_output_0	[1]	int64	8	1
+/text_encoder/attn_encoder/attn_layers.0/Constant_88_output_0	[]	float32	4	1
+tts.ttl.text_encoder.attn_encoder.attn_layers.0.conv_o.weight	[256, 256, 1]	float32	262144	65536
+tts.ttl.text_encoder.attn_encoder.attn_layers.0.conv_o.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.norm_layers_1.0.norm.weight	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.norm_layers_1.0.norm.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.ffn_layers.0.conv_1.weight	[1024, 256, 1]	float32	1048576	262144
+tts.ttl.text_encoder.attn_encoder.ffn_layers.0.conv_1.bias	[1024]	float32	4096	1024
+tts.ttl.text_encoder.attn_encoder.ffn_layers.0.conv_2.weight	[256, 1024, 1]	float32	1048576	262144
+tts.ttl.text_encoder.attn_encoder.ffn_layers.0.conv_2.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.norm_layers_2.0.norm.weight	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.norm_layers_2.0.norm.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.attn_layers.1.conv_q.weight	[256, 256, 1]	float32	262144	65536
+tts.ttl.text_encoder.attn_encoder.attn_layers.1.conv_q.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.attn_layers.1.conv_k.weight	[256, 256, 1]	float32	262144	65536
+tts.ttl.text_encoder.attn_encoder.attn_layers.1.conv_k.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.attn_layers.1.conv_v.weight	[256, 256, 1]	float32	262144	65536
+tts.ttl.text_encoder.attn_encoder.attn_layers.1.conv_v.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.attn_layers.1.emb_rel_k	[1, 9, 64]	float32	2304	576
+tts.ttl.text_encoder.attn_encoder.attn_layers.1.emb_rel_v	[1, 9, 64]	float32	2304	576
+tts.ttl.text_encoder.attn_encoder.attn_layers.1.conv_o.weight	[256, 256, 1]	float32	262144	65536
+tts.ttl.text_encoder.attn_encoder.attn_layers.1.conv_o.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.norm_layers_1.1.norm.weight	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.norm_layers_1.1.norm.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.ffn_layers.1.conv_1.weight	[1024, 256, 1]	float32	1048576	262144
+tts.ttl.text_encoder.attn_encoder.ffn_layers.1.conv_1.bias	[1024]	float32	4096	1024
+tts.ttl.text_encoder.attn_encoder.ffn_layers.1.conv_2.weight	[256, 1024, 1]	float32	1048576	262144
+tts.ttl.text_encoder.attn_encoder.ffn_layers.1.conv_2.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.norm_layers_2.1.norm.weight	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.norm_layers_2.1.norm.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.attn_layers.2.conv_q.weight	[256, 256, 1]	float32	262144	65536
+tts.ttl.text_encoder.attn_encoder.attn_layers.2.conv_q.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.attn_layers.2.conv_k.weight	[256, 256, 1]	float32	262144	65536
+tts.ttl.text_encoder.attn_encoder.attn_layers.2.conv_k.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.attn_layers.2.conv_v.weight	[256, 256, 1]	float32	262144	65536
+tts.ttl.text_encoder.attn_encoder.attn_layers.2.conv_v.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.attn_layers.2.emb_rel_k	[1, 9, 64]	float32	2304	576
+tts.ttl.text_encoder.attn_encoder.attn_layers.2.emb_rel_v	[1, 9, 64]	float32	2304	576
+tts.ttl.text_encoder.attn_encoder.attn_layers.2.conv_o.weight	[256, 256, 1]	float32	262144	65536
+tts.ttl.text_encoder.attn_encoder.attn_layers.2.conv_o.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.norm_layers_1.2.norm.weight	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.norm_layers_1.2.norm.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.ffn_layers.2.conv_1.weight	[1024, 256, 1]	float32	1048576	262144
+tts.ttl.text_encoder.attn_encoder.ffn_layers.2.conv_1.bias	[1024]	float32	4096	1024
+tts.ttl.text_encoder.attn_encoder.ffn_layers.2.conv_2.weight	[256, 1024, 1]	float32	1048576	262144
+tts.ttl.text_encoder.attn_encoder.ffn_layers.2.conv_2.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.norm_layers_2.2.norm.weight	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.norm_layers_2.2.norm.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.attn_layers.3.conv_q.weight	[256, 256, 1]	float32	262144	65536
+tts.ttl.text_encoder.attn_encoder.attn_layers.3.conv_q.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.attn_layers.3.conv_k.weight	[256, 256, 1]	float32	262144	65536
+tts.ttl.text_encoder.attn_encoder.attn_layers.3.conv_k.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.attn_layers.3.conv_v.weight	[256, 256, 1]	float32	262144	65536
+tts.ttl.text_encoder.attn_encoder.attn_layers.3.conv_v.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.attn_layers.3.emb_rel_k	[1, 9, 64]	float32	2304	576
+tts.ttl.text_encoder.attn_encoder.attn_layers.3.emb_rel_v	[1, 9, 64]	float32	2304	576
+tts.ttl.text_encoder.attn_encoder.attn_layers.3.conv_o.weight	[256, 256, 1]	float32	262144	65536
+tts.ttl.text_encoder.attn_encoder.attn_layers.3.conv_o.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.norm_layers_1.3.norm.weight	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.norm_layers_1.3.norm.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.ffn_layers.3.conv_1.weight	[1024, 256, 1]	float32	1048576	262144
+tts.ttl.text_encoder.attn_encoder.ffn_layers.3.conv_1.bias	[1024]	float32	4096	1024
+tts.ttl.text_encoder.attn_encoder.ffn_layers.3.conv_2.weight	[256, 1024, 1]	float32	1048576	262144
+tts.ttl.text_encoder.attn_encoder.ffn_layers.3.conv_2.bias	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.norm_layers_2.3.norm.weight	[256]	float32	1024	256
+tts.ttl.text_encoder.attn_encoder.norm_layers_2.3.norm.bias	[256]	float32	1024	256
+onnx::MatMul_3678	[256, 256]	float32	262144	65536
+tts.ttl.speech_prompted_text_encoder.attention1.W_query.linear.bias	[256]	float32	1024	256
+/speech_prompted_text_encoder/attention1/tanh/Tanh_output_0	[2, 1, 128, 50]	float32	51200	12800
+/speech_prompted_text_encoder/attention1/Constant_9_output_0	[]	float32	4	1
+/speech_prompted_text_encoder/attention1/Constant_13_output_0	[2]	int64	16	2
+onnx::MatMul_3681	[256, 256]	float32	262144	65536
+tts.ttl.speech_prompted_text_encoder.attention1.out_fc.linear.bias	[256]	float32	1024	256
+onnx::MatMul_3682	[256, 256]	float32	262144	65536
+tts.ttl.speech_prompted_text_encoder.attention2.W_query.linear.bias	[256]	float32	1024	256
+/speech_prompted_text_encoder/attention2/tanh/Tanh_output_0	[2, 1, 128, 50]	float32	51200	12800
+onnx::MatMul_3685	[256, 256]	float32	262144	65536
+tts.ttl.speech_prompted_text_encoder.attention2.out_fc.linear.bias	[256]	float32	1024	256
+tts.ttl.speech_prompted_text_encoder.norm.norm.weight	[256]	float32	1024	256
+tts.ttl.speech_prompted_text_encoder.norm.norm.bias	[256]	float32	1024	256

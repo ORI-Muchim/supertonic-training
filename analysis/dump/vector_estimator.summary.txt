@@ -1,0 +1,48 @@
+# vector_estimator.onnx
+opset: [('ai.onnx', 19)]
+ir_version: 9   producer: pytorch 2.8.0
+
+## inputs
+  noisy_latent                              ['batch_size', 144, 'latent_length']  FLOAT
+  text_emb                                  ['batch_size', 256, 'text_length']  FLOAT
+  style_ttl                                 ['batch_size', 50, 256]  FLOAT
+  latent_mask                               ['batch_size', 1, 'latent_length']  FLOAT
+  text_mask                                 ['batch_size', 1, 'text_length']  FLOAT
+  current_step                              ['batch_size']  FLOAT
+  total_step                                ['batch_size']  FLOAT
+## outputs
+  denoised_latent                           ['Muldenoised_latent_dim_0', 144, 'Muldenoised_latent_dim_2']  FLOAT
+
+## op histogram (total 964 nodes)
+  Mul                       237
+  Add                       113
+  Transpose                 105
+  Conv                      86
+  Unsqueeze                 79
+  MatMul                    52
+  Concat                    42
+  Div                       39
+  LayerNormalization        36
+  Split                     32
+  Pad                       28
+  Erf                       28
+  Slice                     18
+  Where                     12
+  Sub                       8
+  Softmax                   8
+  Squeeze                   8
+  Reshape                   5
+  Tanh                      5
+  Shape                     3
+  Gather                    3
+  Sin                       3
+  Cos                       3
+  ReduceSum                 2
+  Equal                     2
+  Cast                      2
+  Gemm                      2
+  Reciprocal                1
+  Tile                      1
+  Softplus                  1
+
+## params: 33,023,903  (132.10 MB)

@@ -1,0 +1,38 @@
+# text_encoder.onnx
+opset: [('ai.onnx', 19)]
+ir_version: 9   producer: pytorch 2.8.0
+
+## inputs
+  text_ids                                  ['batch_size', 'text_length']  INT64
+  style_ttl                                 ['batch_size', 50, 256]  FLOAT
+  text_mask                                 ['batch_size', 1, 'text_length']  FLOAT
+## outputs
+  text_emb                                  ['Multext_emb_dim_0', 256, 'Multext_emb_dim_2']  FLOAT
+
+## op histogram (total 680 nodes)
+  Unsqueeze                 95
+  Mul                       76
+  Transpose                 64
+  Reshape                   64
+  Concat                    50
+  Add                       49
+  Conv                      42
+  Gather                    37
+  Slice                     36
+  Pad                       30
+  MatMul                    26
+  Sub                       24
+  Shape                     16
+  LayerNormalization        15
+  Div                       12
+  Clip                      8
+  Split                     6
+  Erf                       6
+  Where                     6
+  Softmax                   6
+  Pow                       4
+  Relu                      4
+  Equal                     2
+  Squeeze                   2
+
+## params: 6,793,513  (27.17 MB)

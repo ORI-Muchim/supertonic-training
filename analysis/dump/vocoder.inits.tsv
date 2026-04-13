@@ -1,0 +1,117 @@
+name	shape	dtype	nbytes	numel
+tts.ttl.normalizer.scale	[]	float32	4	1
+/Constant_output_0	[]	int64	8	1
+/Constant_2_output_0	[1]	int64	8	1
+/Constant_3_output_0	[1]	int64	8	1
+/Constant_1_output_0	[1]	int64	8	1
+/Constant_6_output_0	[1]	int64	8	1
+/Unsqueeze_3_output_0	[1]	int64	8	1
+tts.ae.latent_std	[1, 24, 1]	float32	96	24
+tts.ae.latent_mean	[1, 24, 1]	float32	96	24
+/decoder/embed/Cast_output_0	[6]	int64	48	6
+onnx::Conv_1440	[512, 24, 7]	float32	344064	86016
+onnx::Conv_1441	[512]	float32	2048	512
+tts.ae.decoder.convnext.0.dwconv.net.weight	[512, 1, 7]	float32	14336	3584
+tts.ae.decoder.convnext.0.dwconv.net.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.0.norm.norm.weight	[512]	float32	2048	512
+tts.ae.decoder.convnext.0.norm.norm.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.0.pwconv1.weight	[2048, 512, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.0.pwconv1.bias	[2048]	float32	8192	2048
+/decoder/convnext.0/act/Constant_output_0	[]	float32	4	1
+/decoder/convnext.0/act/Constant_1_output_0	[]	float32	4	1
+/decoder/convnext.0/act/Constant_2_output_0	[]	float32	4	1
+tts.ae.decoder.convnext.0.pwconv2.weight	[512, 2048, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.0.pwconv2.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.0.gamma	[1, 512, 1]	float32	2048	512
+/decoder/convnext.1/dwconv/Cast_output_0	[6]	int64	48	6
+tts.ae.decoder.convnext.1.dwconv.net.weight	[512, 1, 7]	float32	14336	3584
+tts.ae.decoder.convnext.1.dwconv.net.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.1.norm.norm.weight	[512]	float32	2048	512
+tts.ae.decoder.convnext.1.norm.norm.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.1.pwconv1.weight	[2048, 512, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.1.pwconv1.bias	[2048]	float32	8192	2048
+tts.ae.decoder.convnext.1.pwconv2.weight	[512, 2048, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.1.pwconv2.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.1.gamma	[1, 512, 1]	float32	2048	512
+/decoder/convnext.2/dwconv/Cast_output_0	[6]	int64	48	6
+tts.ae.decoder.convnext.2.dwconv.net.weight	[512, 1, 7]	float32	14336	3584
+tts.ae.decoder.convnext.2.dwconv.net.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.2.norm.norm.weight	[512]	float32	2048	512
+tts.ae.decoder.convnext.2.norm.norm.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.2.pwconv1.weight	[2048, 512, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.2.pwconv1.bias	[2048]	float32	8192	2048
+tts.ae.decoder.convnext.2.pwconv2.weight	[512, 2048, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.2.pwconv2.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.2.gamma	[1, 512, 1]	float32	2048	512
+tts.ae.decoder.convnext.3.dwconv.net.weight	[512, 1, 7]	float32	14336	3584
+tts.ae.decoder.convnext.3.dwconv.net.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.3.norm.norm.weight	[512]	float32	2048	512
+tts.ae.decoder.convnext.3.norm.norm.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.3.pwconv1.weight	[2048, 512, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.3.pwconv1.bias	[2048]	float32	8192	2048
+tts.ae.decoder.convnext.3.pwconv2.weight	[512, 2048, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.3.pwconv2.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.3.gamma	[1, 512, 1]	float32	2048	512
+tts.ae.decoder.convnext.4.dwconv.net.weight	[512, 1, 7]	float32	14336	3584
+tts.ae.decoder.convnext.4.dwconv.net.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.4.norm.norm.weight	[512]	float32	2048	512
+tts.ae.decoder.convnext.4.norm.norm.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.4.pwconv1.weight	[2048, 512, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.4.pwconv1.bias	[2048]	float32	8192	2048
+tts.ae.decoder.convnext.4.pwconv2.weight	[512, 2048, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.4.pwconv2.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.4.gamma	[1, 512, 1]	float32	2048	512
+tts.ae.decoder.convnext.5.dwconv.net.weight	[512, 1, 7]	float32	14336	3584
+tts.ae.decoder.convnext.5.dwconv.net.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.5.norm.norm.weight	[512]	float32	2048	512
+tts.ae.decoder.convnext.5.norm.norm.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.5.pwconv1.weight	[2048, 512, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.5.pwconv1.bias	[2048]	float32	8192	2048
+tts.ae.decoder.convnext.5.pwconv2.weight	[512, 2048, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.5.pwconv2.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.5.gamma	[1, 512, 1]	float32	2048	512
+tts.ae.decoder.convnext.6.dwconv.net.weight	[512, 1, 7]	float32	14336	3584
+tts.ae.decoder.convnext.6.dwconv.net.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.6.norm.norm.weight	[512]	float32	2048	512
+tts.ae.decoder.convnext.6.norm.norm.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.6.pwconv1.weight	[2048, 512, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.6.pwconv1.bias	[2048]	float32	8192	2048
+tts.ae.decoder.convnext.6.pwconv2.weight	[512, 2048, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.6.pwconv2.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.6.gamma	[1, 512, 1]	float32	2048	512
+tts.ae.decoder.convnext.7.dwconv.net.weight	[512, 1, 7]	float32	14336	3584
+tts.ae.decoder.convnext.7.dwconv.net.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.7.norm.norm.weight	[512]	float32	2048	512
+tts.ae.decoder.convnext.7.norm.norm.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.7.pwconv1.weight	[2048, 512, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.7.pwconv1.bias	[2048]	float32	8192	2048
+tts.ae.decoder.convnext.7.pwconv2.weight	[512, 2048, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.7.pwconv2.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.7.gamma	[1, 512, 1]	float32	2048	512
+tts.ae.decoder.convnext.8.dwconv.net.weight	[512, 1, 7]	float32	14336	3584
+tts.ae.decoder.convnext.8.dwconv.net.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.8.norm.norm.weight	[512]	float32	2048	512
+tts.ae.decoder.convnext.8.norm.norm.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.8.pwconv1.weight	[2048, 512, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.8.pwconv1.bias	[2048]	float32	8192	2048
+tts.ae.decoder.convnext.8.pwconv2.weight	[512, 2048, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.8.pwconv2.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.8.gamma	[1, 512, 1]	float32	2048	512
+tts.ae.decoder.convnext.9.dwconv.net.weight	[512, 1, 7]	float32	14336	3584
+tts.ae.decoder.convnext.9.dwconv.net.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.9.norm.norm.weight	[512]	float32	2048	512
+tts.ae.decoder.convnext.9.norm.norm.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.9.pwconv1.weight	[2048, 512, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.9.pwconv1.bias	[2048]	float32	8192	2048
+tts.ae.decoder.convnext.9.pwconv2.weight	[512, 2048, 1]	float32	4194304	1048576
+tts.ae.decoder.convnext.9.pwconv2.bias	[512]	float32	2048	512
+tts.ae.decoder.convnext.9.gamma	[1, 512, 1]	float32	2048	512
+tts.ae.decoder.final_norm.norm.weight	[512]	float32	2048	512
+tts.ae.decoder.final_norm.norm.bias	[512]	float32	2048	512
+tts.ae.decoder.final_norm.norm.running_mean	[512]	float32	2048	512
+tts.ae.decoder.final_norm.norm.running_var	[512]	float32	2048	512
+/decoder/head/layer1/Cast_output_0	[6]	int64	48	6
+tts.ae.decoder.head.layer1.net.weight	[2048, 512, 3]	float32	12582912	3145728
+tts.ae.decoder.head.layer1.net.bias	[2048]	float32	8192	2048
+onnx::PRelu_1505	[1, 1]	float32	4	1
+tts.ae.decoder.head.layer2.weight	[512, 2048, 1]	float32	4194304	1048576
