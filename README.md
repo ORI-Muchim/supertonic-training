@@ -7,6 +7,33 @@ and the paper.
 **This is not an official Supertone repo. No shipped weights are redistributed.**
 All credit for the model goes to the Supertone team.
 
+---
+
+> ### ⚠️ Heads-up before you clone this for "training a TTS"
+>
+> **Running the training code here from scratch will NOT produce a usable TTS
+> model.** The paper's recipe assumes ~100 GPU-days on 4×4090 plus an
+> undisclosed multi-lingual multi-speaker dataset, and the practical details
+> (LR schedule, discriminator warmup, data augmentation, loss-weight schedule,
+> text normalizer, etc.) are not fully specified in the paper.
+>
+> At single-GPU scale, GAN dynamics collapse (discriminator wins, gradient
+> explodes) and the fresh AE encoder's output distribution doesn't line up
+> with the shipped vocoder, so end-to-end synthesis from a locally-trained
+> stack sounds garbled.
+>
+> **This repo is for:** reverse-engineering study of the Supertonic-2
+> architecture, bit-close forward-graph verification, and a reference
+> implementation of the 3-stage training loss/graph wiring.
+>
+> **For actual voice cloning**, use the companion repo
+> [supertonic.embed](https://github.com/kdrkdrkdr/supertonic.embed) — it
+> optimizes `style_ttl`/`style_dp` directly against a reference clip via
+> HuBERT perceptual loss on top of the frozen shipped model, and produces
+> same-voice-level quality in ~15 minutes on a 3090 with zero training.
+
+---
+
 Two layers of content:
 
 1. **`analysis/`** — PyTorch reimplementations of the 4 shipped ONNX modules
