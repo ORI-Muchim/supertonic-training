@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Training artifacts
+training/runs/
+training/data/kss_index.json
+*.pt
+*.ckpt
+
+# Debug ONNX taps (from reverse engineering)
+analysis/_*.onnx
+
+# Upstream assets (user downloads from official release)
+assets/
+*.onnx
+
+# Archive / datasets
+archive/
+datasets/
