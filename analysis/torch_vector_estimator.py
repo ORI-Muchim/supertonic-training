@@ -295,8 +295,12 @@ class VectorField(nn.Module):
                                                     text_dim=text_dim, style_dim=style_dim) for _ in range(n_outer)])
         self.last_convnext = ConvNeXtStack(dim, inter, ksz, (1, 1, 1, 1))
         self.proj_out = nn.Conv1d(dim, latent_dim, 1, bias=False)
-        # learnable style prototype (replaces style_ttl as K source for all style_attn)
-        self.style_prototype = nn.Parameter(torch.zeros(1, 50, style_dim))
+        # learnable style prototype (replaces style_ttl as K source for all style_attn).
+        # Zero-init kills gradient flow via tanh saturation check — use small random so
+        # K = tanh(W_key(proto)) has non-trivial grad w.r.t. proto from step 0.
+        # (This only affects from-scratch training; loading shipped ONNX weights
+        #  overrides with the trained prototype, so bit-close verification is unaffected.)
+        self.style_prototype = nn.Parameter(torch.randn(1, 50, style_dim) * 0.02)
 
     def velocity(self, noisy_latent, text_emb, style_ttl, latent_mask, text_mask, t_norm):
         """Return velocity v_θ(z_t, cond, t) only (for training — no ODE step applied).

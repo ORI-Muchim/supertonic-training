@@ -202,6 +202,10 @@ class StyleEncoder(nn.Module):
         n_heads: int = 2,
         n_refine: int = 2,            # total attention layers (paper: "two attention layers")
         pad_mode: str = "symmetric",
+        out_scale: float = 0.0625,    # shipped voice_styles all have std=0.0625 exactly.
+                                       # Post-LayerNorm × this scale fixes our encoder's
+                                       # output distribution to match the pre-trained
+                                       # TE/VF's expected style_ttl scale.
     ):
         super().__init__()
         assert n_refine >= 1
@@ -221,6 +225,11 @@ class StyleEncoder(nn.Module):
                                  n_heads=n_heads, key_dim=key_dim)
             for _ in range(n_refine - 1)
         ])
+        # Output whitening + fixed scale. Keeps encoder output distribution
+        # in the regime that shipped TE/VF were trained on (otherwise loss is
+        # dominated by a constant scale mismatch and the model can't converge).
+        self.out_norm = nn.LayerNorm(value_dim)
+        self.register_buffer("out_scale", torch.tensor(float(out_scale)))
 
     def forward(self, latent: torch.Tensor, frame_mask: torch.Tensor | None = None) -> torch.Tensor:
         """latent [B, 24, T] → [B, n_style, value_dim]."""
@@ -241,7 +250,8 @@ class StyleEncoder(nn.Module):
         tokens = self.style_token_layer(x, attn_mask=attn_mask)     # [B, N, V]
         for refine in self.refine_layers:
             tokens = refine(tokens, x, attn_mask=attn_mask)
-        return tokens
+        # Normalize per-token dims then scale to the shipped distribution.
+        return self.out_norm(tokens) * self.out_scale
 
 
 class StyleEncoderTTL(StyleEncoder):

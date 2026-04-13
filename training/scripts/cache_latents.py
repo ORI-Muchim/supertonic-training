@@ -55,10 +55,20 @@ def main():
     device = torch.device(args.device)
 
     # --- load AE ---
+    # Accepts two ckpt layouts:
+    #   (a) train_ae.py saves {"ae": full_SpeechAutoencoder_state_dict, ...}
+    #   (b) train_ae_ft.py saves {"encoder": AEEncoder_state_dict, ...}  (decoder was frozen/shipped)
     print(f"[info] loading AE from {args.ckpt}")
     ck = torch.load(args.ckpt, map_location=device, weights_only=False)
     ae = SpeechAutoencoder().to(device)
-    ae.load_state_dict(ck["ae"])
+    if "ae" in ck:
+        ae.load_state_dict(ck["ae"])
+    elif "encoder" in ck:
+        ae.encoder.load_state_dict(ck["encoder"])
+        print("[info] loaded encoder-only ckpt (from train_ae_ft.py); decoder left at init "
+              "- this is fine because we only use the encoder here.")
+    else:
+        raise KeyError(f"ckpt has no 'ae' or 'encoder' key: {list(ck.keys())}")
     ae.eval()
     encoder = ae.encoder
     spec = ae.spec

@@ -34,3 +34,12 @@ assets/
 # Archive / datasets
 archive/
 datasets/
+
+# Claude Code internal
+.claude/
+
+# Scratch / experiments (prefix convention)
+_*.py
+_*.wav
+_*.json
+_*.txt

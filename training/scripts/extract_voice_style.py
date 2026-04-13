@@ -74,13 +74,20 @@ def _load_encoder_and_style(
 ):
     """Load AE encoder from ae_ckpt, StyleEncoderTTL from ttl_ckpt,
     StyleEncoderDP from dp_ckpt."""
-    # AE encoder
-    ae_sd = torch.load(str(ae_ckpt), map_location=device, weights_only=False)["ae"]
+    # AE encoder — handles both ckpt layouts (full-AE from train_ae.py or
+    # encoder-only from train_ae_ft.py)
+    ck = torch.load(str(ae_ckpt), map_location=device, weights_only=False)
     enc = AEEncoder().to(device)
-    enc_sd = {k.replace("encoder.", "", 1): v for k, v in ae_sd.items() if k.startswith("encoder.")}
-    missing, unexpected = enc.load_state_dict(enc_sd, strict=False)
-    if missing or unexpected:
-        print(f"[warn] AE encoder load: missing={missing[:2]}...  unexpected={unexpected[:2]}...")
+    if "encoder" in ck:
+        enc.load_state_dict(ck["encoder"])
+    elif "ae" in ck:
+        ae_sd = ck["ae"]
+        enc_sd = {k.replace("encoder.", "", 1): v for k, v in ae_sd.items() if k.startswith("encoder.")}
+        missing, unexpected = enc.load_state_dict(enc_sd, strict=False)
+        if missing or unexpected:
+            print(f"[warn] AE encoder load: missing={missing[:2]}...  unexpected={unexpected[:2]}...")
+    else:
+        raise KeyError(f"ckpt has no 'ae' or 'encoder' key: {list(ck.keys())}")
     enc.eval()
 
     # TTL style encoder (saved under 'style_encoder' key in train_ttl.py)
@@ -102,6 +109,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--wav",      type=str, required=True, help="reference audio file")
     ap.add_argument("--ae_ckpt",  type=str, required=True)
+    ap.add_argument("--stats",    type=str, required=True,
+                    help="stats.pt from cache_latents — used to normalize z_ae "
+                         "before style encoders (must match what train_ttl saw)")
     ap.add_argument("--ttl_ckpt", type=str, required=True)
     ap.add_argument("--dp_ckpt",  type=str, required=True)
     ap.add_argument("--out",      type=str, required=True, help="output JSON path")
@@ -127,12 +137,18 @@ def main():
     spec = SpecProcessor().to(device)
     enc, se_ttl, se_dp = _load_encoder_and_style(args.ae_ckpt, args.ttl_ckpt, args.dp_ckpt, device)
 
+    # Load AE latent stats for normalization (must match what train_ttl/train_dp used)
+    _stats = torch.load(args.stats, map_location=device, weights_only=False)
+    _ae_mean = _stats["mean"].to(device).view(1, -1, 1)
+    _ae_std  = _stats["std"].to(device).view(1, -1, 1)
+
     # ---- forward ----
     with torch.no_grad():
-        feats  = spec(wav)                # [1, 1253, T_frames]
-        latent = enc(feats)                # [1, 24, T_frames]
-        style_ttl = se_ttl(latent)         # [1, 50, 256]
-        style_dp  = se_dp(latent)          # [1, 8, 16]
+        feats  = spec(wav)                          # [1, 1253, T_frames]
+        latent = enc(feats)                          # [1, 24, T_frames]
+        latent_norm = (latent - _ae_mean) / _ae_std  # z-score to ~N(0,1)
+        style_ttl = se_ttl(latent_norm)              # [1, 50, 256]
+        style_dp  = se_dp(latent_norm)               # [1, 8, 16]
 
     style_ttl_np = style_ttl.cpu().numpy().astype("float32")
     style_dp_np  = style_dp.cpu().numpy().astype("float32")

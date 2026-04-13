@@ -37,8 +37,8 @@ from training.losses.flow_matching import (
 )
 
 # Import verified inference modules from analysis/
-from torch_text_encoder import TextEncoder      # type: ignore
-from torch_vector_estimator import VectorField  # type: ignore
+from torch_text_encoder import TextEncoder, load_text_encoder_weights   # type: ignore
+from torch_vector_estimator import VectorField, load_ve_weights         # type: ignore
 
 
 @dataclass
@@ -47,6 +47,12 @@ class TTLConfig:
     cache_dir: str = ""
     unicode_indexer: str = "assets/onnx/unicode_indexer.json"
     lang: str = "ko"
+    # fine-tune: load shipped text_encoder + vector_estimator as init and freeze.
+    # This collapses training to just StyleEncoderTTL (+ uncond_masker tokens) —
+    # 1.5M params instead of 44M — and makes convergence tractable on small data.
+    fine_tune: bool = True
+    te_onnx: str = "assets/onnx/text_encoder.onnx"
+    ve_onnx: str = "assets/onnx/vector_estimator.onnx"
     # optim
     lr: float = 5e-4
     beta1: float = 0.9
@@ -96,6 +102,8 @@ def main():
     ap.add_argument("--batch_size", type=int, default=None)
     ap.add_argument("--out_dir", type=str, default=None)
     ap.add_argument("--resume", type=str, default=None)
+    ap.add_argument("--from_scratch", action="store_true",
+                    help="disable fine-tune mode; train text_encoder + vector_estimator from random init")
     ap.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     args = ap.parse_args()
 
@@ -104,6 +112,7 @@ def main():
     if args.batch_size is not None: cfg.batch_size = args.batch_size
     if args.out_dir is not None:    cfg.out_dir = args.out_dir
     if args.resume is not None:     cfg.resume = args.resume
+    if args.from_scratch:           cfg.fine_tune = False
     if args.smoke:
         cfg.steps = 300
         cfg.batch_size = 2
@@ -124,6 +133,13 @@ def main():
     print(f"[info] dataset: {len(ds)} utterances")
     data_iter = iter(_inf_loader(dl))
 
+    # z-score stats for normalizing AE latent before the style encoder.
+    # Raw z_ae from the (undertrained) AE has arbitrary scale (std ~100s~1000s);
+    # feeding it unnormalized makes style_encoder outputs explode (std 1e4+) and
+    # kills downstream gradients. We standardize here so style_encoder sees ~N(0,1).
+    _ae_mean = ds.mean.to(device).view(1, -1, 1)
+    _ae_std  = ds.std.to(device).view(1, -1, 1)
+
     # --- models ---
     text_encoder = TextEncoder().to(device)
     style_encoder = StyleEncoderTTL().to(device)
@@ -134,8 +150,24 @@ def main():
         std=cfg.uncond_std,
     )).to(device)
 
-    all_params = (list(text_encoder.parameters()) + list(style_encoder.parameters())
-                  + list(vector_field.parameters()) + list(uncond_masker.parameters()))
+    # Fine-tune mode: load shipped weights into text_encoder + vector_field, freeze them.
+    # StyleEncoderTTL starts random and is the only "real" trainable module; adapts a
+    # new speaker/dataset into the pre-trained conditioning pipeline.
+    if cfg.fine_tune:
+        load_text_encoder_weights(text_encoder, cfg.te_onnx)
+        load_ve_weights(vector_field, cfg.ve_onnx)
+        for p in text_encoder.parameters(): p.requires_grad_(False)
+        for p in vector_field.parameters(): p.requires_grad_(False)
+        text_encoder.eval()
+        vector_field.eval()
+        trainable = list(style_encoder.parameters()) + list(uncond_masker.parameters())
+        print(f"[info] fine-tune mode: shipped weights loaded, TE+VF frozen.")
+    else:
+        trainable = (list(text_encoder.parameters()) + list(style_encoder.parameters())
+                     + list(vector_field.parameters()) + list(uncond_masker.parameters()))
+        print(f"[info] from-scratch mode: training all modules.")
+
+    all_params = trainable
     n_params = sum(p.numel() for p in all_params)
     print(f"[info] trainable params: {n_params/1e6:.2f}M")
 
@@ -166,7 +198,10 @@ def main():
         tb = None
 
     # --- train ---
-    for m in (text_encoder, style_encoder, vector_field, uncond_masker): m.train()
+    # In fine-tune mode, keep frozen modules in eval (no grad, no train-mode drift).
+    style_encoder.train(); uncond_masker.train()
+    if not cfg.fine_tune:
+        text_encoder.train(); vector_field.train()
     t_start = time.time()
     for step in range(step0 + 1, cfg.steps + 1):
         batch = next(data_iter)
@@ -178,7 +213,8 @@ def main():
         B = z_1.shape[0]
 
         # --- condition encoders (run once per original batch, will be expanded) ---
-        style_ttl = style_encoder(z_ae)                              # [B, 50, 256]
+        z_ae_norm = (z_ae - _ae_mean) / _ae_std                      # z-score to ~N(0,1)
+        style_ttl = style_encoder(z_ae_norm)                         # [B, 50, 256]
         text_emb  = text_encoder(text_ids, style_ttl, text_mask)     # [B, 256, T_text]
 
         # CFG dropout

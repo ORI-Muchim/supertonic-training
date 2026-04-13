@@ -26,7 +26,7 @@ sys.path.insert(0, str(ROOT / "py"))
 from training.data.ttl_dataset import TTLDataset, collate_ttl, TTL_NORMALIZER_SCALE
 from training.models.style_encoder import StyleEncoderDP
 
-from torch_duration_predictor import DurationPredictor  # type: ignore
+from torch_duration_predictor import DurationPredictor, load_dp_weights  # type: ignore
 
 
 @dataclass
@@ -46,6 +46,9 @@ class DPConfig:
     ckpt_every: int = 1000
     out_dir: str = "training/runs/dp"
     resume: str | None = None
+    # Fine-tune: load shipped DP and freeze; train only StyleEncoderDP.
+    fine_tune: bool = True
+    dp_onnx: str = "assets/onnx/duration_predictor.onnx"
 
 
 def _get_durations(batch, sample_rate: int = 44100, hop: int = 512):
@@ -73,6 +76,8 @@ def main():
     ap.add_argument("--batch_size", type=int, default=None)
     ap.add_argument("--out_dir", type=str, default=None)
     ap.add_argument("--resume", type=str, default=None)
+    ap.add_argument("--from_scratch", action="store_true",
+                    help="disable fine-tune; train DP module from random init")
     ap.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     args = ap.parse_args()
 
@@ -81,6 +86,7 @@ def main():
     if args.batch_size is not None: cfg.batch_size = args.batch_size
     if args.out_dir is not None:    cfg.out_dir = args.out_dir
     if args.resume is not None:     cfg.resume = args.resume
+    if args.from_scratch:           cfg.fine_tune = False
     if args.smoke:
         cfg.steps = 200
         cfg.batch_size = 4
@@ -102,11 +108,23 @@ def main():
     data_iter = iter(_inf_loader(dl))
     print(f"[info] dataset: {len(ds)} utterances")
 
+    # z-score stats for AE latent (see train_ttl.py for rationale).
+    _ae_mean = ds.mean.to(device).view(1, -1, 1)
+    _ae_std  = ds.std.to(device).view(1, -1, 1)
+
     # models
     dp = DurationPredictor().to(device)
     style_enc = StyleEncoderDP().to(device)
 
-    params = list(dp.parameters()) + list(style_enc.parameters())
+    if cfg.fine_tune:
+        load_dp_weights(dp, cfg.dp_onnx)
+        for p in dp.parameters(): p.requires_grad_(False)
+        dp.eval()
+        params = list(style_enc.parameters())
+        print(f"[info] fine-tune mode: shipped DP loaded + frozen; training StyleEncoderDP only.")
+    else:
+        params = list(dp.parameters()) + list(style_enc.parameters())
+        print(f"[info] from-scratch mode: training DP + StyleEncoderDP.")
     n = sum(p.numel() for p in params)
     print(f"[info] trainable params: {n/1e6:.2f}M")
 
@@ -126,7 +144,9 @@ def main():
     except Exception:
         tb = None
 
-    dp.train(); style_enc.train()
+    style_enc.train()
+    if not cfg.fine_tune:
+        dp.train()
     t_start = time.time()
     for step in range(step0 + 1, cfg.steps + 1):
         batch = next(data_iter)
@@ -135,7 +155,8 @@ def main():
         text_mask = batch["text_mask"].to(device, non_blocking=True)
         gt_dur    = _get_durations(batch).to(device, non_blocking=True)
 
-        style_dp = style_enc(z_ae)                        # [B, 8, 16]
+        z_ae_norm = (z_ae - _ae_mean) / _ae_std           # z-score to ~N(0,1)
+        style_dp = style_enc(z_ae_norm)                   # [B, 8, 16]
         pred_dur = dp(text_ids, style_dp, text_mask)       # [B]
 
         loss = torch.abs(pred_dur - gt_dur).mean()

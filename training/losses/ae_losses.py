@@ -49,8 +49,12 @@ class MultiResolutionMelLoss(nn.Module):
     def forward(self, wav_hat: torch.Tensor, wav: torch.Tensor) -> torch.Tensor:
         loss = 0.0
         for mel in self.mel_transforms:
-            m_hat = torch.log(mel(wav_hat) + self.eps)
-            m_ref = torch.log(mel(wav)     + self.eps)
+            # Use clamp inside log (not + eps) to prevent gradient explosion:
+            # d/dx log(x + eps) = 1/(x+eps) -> 1e5 when x ~ 0, blowing up backward.
+            # clamp_min flattens grad below eps, which is fine — near-silence bins
+            # shouldn't dominate training anyway.
+            m_hat = torch.log(mel(wav_hat).clamp_min(self.eps))
+            m_ref = torch.log(mel(wav).clamp_min(self.eps))
             loss = loss + F.l1_loss(m_hat, m_ref)
         return loss / len(self.mel_transforms)
 
