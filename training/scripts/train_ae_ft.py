@@ -66,7 +66,8 @@ class AEFTConfig:
     ttl_normalizer_scale: float = 0.25
     # loss
     w_wav: float = 45.0
-    w_latent: float = 1.0
+    w_latent: float = 0.0   # 0 because instance-norm makes L_latent ~0 by construction
+    instance_norm_z: bool = True   # hard per-(sample,channel) normalize at encoder output
     # optim
     lr: float = 2e-4
     beta1: float = 0.8
@@ -208,10 +209,22 @@ def main():
 
         # === forward ===
         feats = spec(wav)                       # [B, 1253, T_frames]
-        z_ae = encoder(feats)                   # [B, 24, T_frames]
+        z_raw = encoder(feats)                  # [B, 24, T_frames]
 
-        # Normalize by shipped stats then apply TTL scale, then chunk for decoder
-        z_norm = (z_ae - latent_mean) / latent_std    # target: ~N(0, 1)
+        # Hard instance-normalize per (sample, channel) over time so z_norm has
+        # per-(B,c) mean=0/std=1 by construction. Pooled across (B,T) it is also
+        # (0, 1), so frozen vocoder's internal `× latent_std + latent_mean`
+        # de-normalize lands the signal in shipped's raw latent distribution.
+        # This removes the moment-matching gradient war that destabilized w_latent>0.
+        if cfg.instance_norm_z:
+            mu  = z_raw.mean(dim=-1, keepdim=True)
+            sig = z_raw.std(dim=-1, keepdim=True, unbiased=False).clamp_min(1e-5)
+            z_norm = (z_raw - mu) / sig
+            z_ae = z_norm * latent_std + latent_mean    # for ckpt parity / downstream
+        else:
+            z_ae = z_raw
+            z_norm = (z_ae - latent_mean) / latent_std    # legacy path
+
         z_ttl = chunk_compress(z_norm * normalizer_scale, kc=6)  # [B, 144, T/6]
 
         wav_hat = vocoder(z_ttl)                 # [B, T_hat]
@@ -226,11 +239,12 @@ def main():
         # === losses ===
         L_wav = wav_loss(wav_hat, wav)
 
-        # Moment matching on z_norm across (B, T). Both measured per-channel.
+        # Moment matching on z_norm across (B, T). Per-channel, squared-sum so
+        # a single exploding channel can't be diluted by 23 well-behaved ones.
         z_flat = z_norm.transpose(1, 2).reshape(-1, cfg.ldim)   # [B*T, 24]
         z_mean = z_flat.mean(dim=0)              # [24]
         z_std  = z_flat.std(dim=0).clamp_min(1e-6)
-        L_latent = z_mean.abs().mean() + (z_std - 1.0).abs().mean()
+        L_latent = (z_mean ** 2).sum() + ((z_std - 1.0) ** 2).sum()
 
         L = cfg.w_wav * L_wav + cfg.w_latent * L_latent
 
@@ -244,11 +258,15 @@ def main():
         if step % cfg.log_every == 0:
             elapsed = time.time() - t_start
             sps = (step - step0) / max(elapsed, 1e-9)
+            z_sigma_max = z_std.max().item()
+            z_sigma_min = z_std.min().item()
+            z_mu_max = z_mean.abs().max().item()
             print(
                 f"[step {step}/{cfg.steps}]  "
                 f"L={L.item():.4f}  wav={L_wav.item():.4f}  "
                 f"lat={L_latent.item():.4f}  "
-                f"zμ={z_mean.abs().mean().item():.3f}  zσ={z_std.mean().item():.3f}  "
+                f"zmu_mean={z_mean.abs().mean().item():.3f}  zmu_max={z_mu_max:.3f}  "
+                f"zsig_mean={z_std.mean().item():.3f}  zsig=[{z_sigma_min:.3f},{z_sigma_max:.3f}]  "
                 f"gn={gn:.2f}  |  {sps:.2f} step/s",
                 flush=True,
             )
@@ -256,8 +274,11 @@ def main():
                 tb.add_scalar("L/total",  L.item(), step)
                 tb.add_scalar("L/wav",    L_wav.item(), step)
                 tb.add_scalar("L/latent", L_latent.item(), step)
-                tb.add_scalar("z/mu_abs", z_mean.abs().mean().item(), step)
-                tb.add_scalar("z/sigma",  z_std.mean().item(), step)
+                tb.add_scalar("z/mu_abs_mean", z_mean.abs().mean().item(), step)
+                tb.add_scalar("z/mu_abs_max",  z_mu_max, step)
+                tb.add_scalar("z/sigma_mean",  z_std.mean().item(), step)
+                tb.add_scalar("z/sigma_max",   z_sigma_max, step)
+                tb.add_scalar("z/sigma_min",   z_sigma_min, step)
                 tb.add_scalar("grad/norm", gn.item(), step)
                 tb.add_scalar("sys/sps",   sps, step)
 
