@@ -1,20 +1,18 @@
 """Flow matching loss and training-time helpers for TTL (Stage 2).
 
-Paper:
+Paper (arXiv 2503.23108, Sec 3.2.4 / B.2):
     z_t   = (1 - (1 - σ_min) · t) · z_0 + t · z_1
     target = z_1 - (1 - σ_min) · z_0
     L_CFM = E [ || m ⊙ ( v_θ(z_t, c, t) - target ) ||_1 ]
 
-With σ_min = 0 (matches tts.json ttl.flow_matching.sig_min):
-    z_t   = (1 - t) · z_0 + t · z_1
-    target = z_1 - z_0
+    σ_min = 1e-8        (paper B.2)
+    p_uncond = 0.05     (paper B.2; both z_ref AND text dropped jointly)
+    K_e = 4 (batch expand)   (paper Sec 3.2.3)
+    Mask m: 1 OUTSIDE the reference crop, 0 INSIDE the crop
+            -> loss is computed only on non-reference frames, prevents leakage.
 
-CFG: `UncondMasker` stochastically replaces conditioning with learned uncond tokens.
-Batch expansion (K_e): reuse one forward pass of text/style encoders across K_e
-different (z_0, t) pairs — faster WER convergence per paper.
-
-SPFM: binary per-sample filter after warmup — train unconditionally on samples
-where L_cond > L_uncond (rejects noisy labels).
+CFG: `UncondMasker` stochastically replaces BOTH conditioning signals with learned
+uncond tokens with probability p_uncond (single joint event, paper-faithful).
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -23,7 +21,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-SIGMA_MIN = 0.0     # tts.json: ttl.flow_matching.sig_min = 0
+SIGMA_MIN = 1e-8        # paper B.2 specifies σ_min = 10^-8
 
 
 def sample_flow_matching_inputs(
@@ -82,24 +80,19 @@ def cfm_loss(
 # ----------- Uncond masker (CFG dropout) -----------
 @dataclass
 class UncondMaskerConfig:
-    prob_both_uncond: float = 0.04
-    prob_text_uncond: float = 0.01
-    std: float = 0.1
+    """Paper B.2: single joint dropout probability p_uncond=0.05.
+    BOTH text_emb AND style_ttl are replaced with learned uncond tokens together,
+    with a single Bernoulli draw per sample (no split, no separate text-only event).
+    """
+    prob_uncond: float = 0.05
     text_dim: int = 256
     n_style: int = 50
-    style_value_dim: int = 256
+    style_value_dim: int = 128   # paper A.2.1 / B.2: reference value dim is 128
 
 
 class UncondMasker(nn.Module):
-    """Stochastically replace text_emb and/or style_ttl with learned uncond tokens.
-
-    Sampling scheme per batch element:
-      ε ~ U[0, 1]
-      if ε < prob_both_uncond          : replace BOTH
-      elif ε < prob_both_uncond + prob_text_uncond : replace TEXT only
-      else                              : keep both
-
-    Replacement = learnable_uncond + N(0, std²)
+    """Paper-faithful CFG dropout: replace BOTH text_emb and style_ttl jointly with
+    learned uncond tokens with probability prob_uncond per sample.
     """
     def __init__(self, cfg: UncondMaskerConfig | None = None):
         super().__init__()
@@ -110,32 +103,21 @@ class UncondMasker(nn.Module):
         self.uncond_style = nn.Parameter(torch.zeros(1, cfg.n_style, cfg.style_value_dim))
 
     def forward(self, text_emb: torch.Tensor, style_ttl: torch.Tensor):
-        """Replace per-sample with uncond tokens with given probabilities.
+        """Replace per-sample with uncond tokens with single joint probability.
 
         Returns masked (text_emb, style_ttl) with same shapes.
         """
         B = text_emb.shape[0]
         device = text_emb.device
         eps = torch.rand(B, device=device)
+        drop = eps < self.cfg.prob_uncond            # [B] bool — drop both jointly
 
-        p_both = self.cfg.prob_both_uncond
-        p_text = self.cfg.prob_text_uncond
-        drop_both = eps < p_both
-        drop_text = (eps < p_both + p_text) & (~drop_both)
-
-        if drop_both.any() or drop_text.any():
-            # Build replacement tensors matching shapes
+        if drop.any():
             text_unc  = self.uncond_text.expand_as(text_emb)
             style_unc = self.uncond_style.expand_as(style_ttl)
-            if self.cfg.std > 0.0 and self.training:
-                text_unc  = text_unc  + torch.randn_like(text_unc)  * self.cfg.std
-                style_unc = style_unc + torch.randn_like(style_unc) * self.cfg.std
-
-            # Apply per-sample replacements
-            drop_text_mask  = (drop_both | drop_text).view(B, 1, 1)
-            drop_style_mask = drop_both.view(B, 1, 1)
-            text_emb  = torch.where(drop_text_mask,  text_unc,  text_emb)
-            style_ttl = torch.where(drop_style_mask, style_unc, style_ttl)
+            drop_t = drop.view(B, 1, 1)
+            text_emb  = torch.where(drop_t, text_unc,  text_emb)
+            style_ttl = torch.where(drop_t, style_unc, style_ttl)
 
         return text_emb, style_ttl
 
@@ -173,33 +155,25 @@ def spfm_select(
 
 if __name__ == "__main__":
     torch.manual_seed(0)
-    # Shapes: B=4, C=144 (TTL latent), L=30 (frames)
     z_1 = torch.randn(4, 144, 30)
     mask = torch.ones(4, 1, 30); mask[0, 0, 25:] = 0
     z_t, target, z_0, t = sample_flow_matching_inputs(z_1, mask)
     print(f"z_t {tuple(z_t.shape)}, target {tuple(target.shape)}, t {tuple(t.shape)}")
-
     v_pred = torch.randn_like(z_1)
     loss = cfm_loss(v_pred, target, mask)
     print(f"CFM loss: {loss.item():.4f}")
+    print(f"SIGMA_MIN={SIGMA_MIN} (paper B.2: 1e-8)")
 
-    # uncond masker
+    # uncond masker (paper-faithful: single joint p=0.05)
     text_emb  = torch.randn(4, 256, 15)
-    style_ttl = torch.randn(4, 50, 256)
+    style_ttl = torch.randn(4, 50, 128)   # paper A.2.1: 128-dim
     um = UncondMasker()
     um.train()
-    torch.manual_seed(123)
     te, st = um(text_emb, style_ttl)
     print(f"after masker: text {tuple(te.shape)}, style {tuple(st.shape)}")
-    # repeated sampling to confirm probabilities
-    hits_both = hits_text = hits_none = 0
-    N = 2000
-    for _ in range(N):
-        eps = torch.rand(1).item()
-        if eps < 0.04: hits_both += 1
-        elif eps < 0.05: hits_text += 1
-        else: hits_none += 1
-    print(f"expected drop ratios in {N} samples: both={hits_both/N:.3f}, text_only={hits_text/N:.3f}, none={hits_none/N:.3f}")
+    # repeated sampling
+    drops = sum(int(torch.rand(1).item() < 0.05) for _ in range(2000))
+    print(f"drop rate over 2000 samples: {drops/2000:.3f}  (expected ~0.05)")
 
     # batch expand
     a = torch.arange(3 * 2).reshape(3, 2)

@@ -24,29 +24,39 @@ class SpeechAutoencoder(nn.Module):
         ksz_init: int = 7,
         encoder_dilations: tuple[int, ...] = (1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
         decoder_dilations: tuple[int, ...] = (1, 2, 4, 1, 2, 4, 1, 1, 1, 1),
-        pad_mode: str = "causal",
+        encoder_pad_mode: str = "symmetric",   # paper: encoder is NOT causal
+        decoder_pad_mode: str = "causal",      # paper Sec 3.1.1 / A.1.2: decoder is causal
+        spec_mode: str = "mel",   # "concat" -> 1253-dim ONNX-compat; "mel" -> 228-dim paper
+        # Ablation switches for paper-faithful fixes. All True = paper-faithful.
+        # Set False individually to reproduce broken-arch behavior on that axis.
+        enable_encoder_stem_bn: bool = True,
+        enable_encoder_out_ln: bool = True,
+        enable_decoder_stem_bn: bool = True,
     ):
         super().__init__()
         self.sample_rate = sample_rate
         self.hop_length = hop_length
         self.spec = SpecProcessor(
             n_fft=n_fft, win_length=win_length, hop_length=hop_length,
-            n_mels=n_mels, sample_rate=sample_rate,
+            n_mels=n_mels, sample_rate=sample_rate, mode=spec_mode,
         )
-        idim = self.spec.feature_dim   # 1025 + 228 = 1253
+        idim = self.spec.feature_dim   # 1253 (concat) or 228 (mel)
         self.encoder = AEEncoder(
             idim=idim, hdim=hdim, odim=ldim,
             ksz_init=ksz_init, ksz=ksz, num_layers=num_layers,
             intermediate_dim=intermediate_dim,
             dilation_lst=encoder_dilations,
-            pad_mode=pad_mode,
+            pad_mode=encoder_pad_mode,
+            enable_stem_bn=enable_encoder_stem_bn,
+            enable_out_ln=enable_encoder_out_ln,
         )
         self.decoder = AEDecoder(
             ldim=ldim, hdim=hdim, intermediate_dim=intermediate_dim,
             ksz_init=ksz_init, ksz=ksz, num_layers=num_layers,
             dilation_lst=decoder_dilations,
             head_out=hop_length,
-            pad_mode=pad_mode,
+            pad_mode=decoder_pad_mode,
+            enable_stem_bn=enable_decoder_stem_bn,
         )
 
     def encode(self, wav: torch.Tensor) -> torch.Tensor:

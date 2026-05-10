@@ -3,7 +3,7 @@
 Paper (SupertonicTTS, arXiv 2503.23108):
   L_G = 45·L_recon + 1·L_adv + 0.1·L_fm
   L_recon: multi-resolution **mel** L1 at FFT ∈ {1024, 2048, 4096}
-  L_adv, L_D: LSGAN style (MSE on labels 0/1) — HiFi-GAN convention
+  L_adv, L_D: LSGAN with ±1 labels (paper Eq. 4/5), NOT 0/1 HiFi-GAN labels
   L_fm:     L1 feature matching across every discriminator layer
 """
 from __future__ import annotations
@@ -14,24 +14,26 @@ import torchaudio
 
 
 class MultiResolutionMelLoss(nn.Module):
-    """L1 between multi-resolution log-mel spectrograms of real vs fake waveform."""
+    """L1 between multi-resolution log-mel spectrograms of real vs fake waveform.
+
+    Paper (App. B.1): FFT sizes 1024 / 2048 / 4096, mel bands 64 / 128 / 128,
+    hops = FFT / 4, Hann windows of size = FFT.
+    """
     def __init__(
         self,
         sample_rate: int = 44100,
         ffts: tuple[int, ...] = (1024, 2048, 4096),
         n_mels_per_fft: tuple[int, ...] | None = None,     # one per FFT size
         eps: float = 1e-5,
+        reduction: str = "mean",  # "mean" keeps lambda_recon scale independent of #resolutions.
     ):
         super().__init__()
         self.eps = eps
-        # Scale n_mels with FFT size to avoid empty filterbanks at small FFT.
-        # Default: 80, 160, 228 — covers common BigVGAN/DAC-style configs and
-        # reaches the AE input resolution (228) at the largest FFT.
+        self.reduction = reduction
+        # Paper App. B.1: 64 / 128 / 128 mel bands for FFT 1024 / 2048 / 4096.
         if n_mels_per_fft is None:
-            # Chosen so no filterbank is empty at SR=44.1kHz:
-            # FFT 1024 -> 80, FFT 2048 -> 160, FFT 4096 -> 228.
-            _default_map = {1024: 80, 2048: 160, 4096: 228, 8192: 228}
-            n_mels_per_fft = tuple(_default_map.get(f, max(80, min(228, f // 16))) for f in ffts)
+            _default_map = {1024: 64, 2048: 128, 4096: 128, 8192: 128}
+            n_mels_per_fft = tuple(_default_map.get(f, max(64, min(128, f // 16))) for f in ffts)
         assert len(n_mels_per_fft) == len(ffts)
         self.mel_transforms = nn.ModuleList()
         for n_fft, n_mels in zip(ffts, n_mels_per_fft):
@@ -47,21 +49,26 @@ class MultiResolutionMelLoss(nn.Module):
             ))
 
     def forward(self, wav_hat: torch.Tensor, wav: torch.Tensor) -> torch.Tensor:
+        # The paper defines a multi-resolution mel spectral L1 loss but does not
+        # specify whether resolution terms are summed or averaged. Use "mean" by
+        # default so lambda_recon=45 is not implicitly multiplied by len(ffts).
         loss = 0.0
         for mel in self.mel_transforms:
-            # Use clamp inside log (not + eps) to prevent gradient explosion:
-            # d/dx log(x + eps) = 1/(x+eps) -> 1e5 when x ~ 0, blowing up backward.
-            # clamp_min flattens grad below eps, which is fine — near-silence bins
-            # shouldn't dominate training anyway.
             m_hat = torch.log(mel(wav_hat).clamp_min(self.eps))
             m_ref = torch.log(mel(wav).clamp_min(self.eps))
             loss = loss + F.l1_loss(m_hat, m_ref)
-        return loss / len(self.mel_transforms)
+        if self.reduction == "mean":
+            loss = loss / len(self.mel_transforms)
+        return loss
 
 
 # -------------------- GAN + FM losses --------------------
+# Paper Eq. (4): L_adv(G;D) = E[(D(G(x)) - 1)^2]      — G wants D(fake) -> +1
+# Paper Eq. (5): L_adv(D;G) = E[(D(G(x)) + 1)^2 + (D(x) - 1)^2]
+#                                                     — D wants D(real) -> +1, D(fake) -> -1
+# This is the LS-GAN with -1/+1 labels (HiFi-GAN evolved variant), NOT 0/1 labels.
 def generator_adv_loss(fake_logits_list: list[torch.Tensor]) -> torch.Tensor:
-    """LSGAN generator loss: E[(D(fake) - 1)^2] averaged over heads."""
+    """LSGAN-(±1) generator loss: E[(D(fake) - 1)^2] averaged over heads (paper Eq. 4)."""
     loss = 0.0
     for lg in fake_logits_list:
         loss = loss + torch.mean((lg - 1.0) ** 2)
@@ -72,10 +79,10 @@ def discriminator_adv_loss(
     real_logits_list: list[torch.Tensor],
     fake_logits_list: list[torch.Tensor],
 ) -> torch.Tensor:
-    """LSGAN discriminator loss."""
+    """LSGAN-(±1) discriminator loss (paper Eq. 5)."""
     loss = 0.0
     for lr, lf in zip(real_logits_list, fake_logits_list):
-        loss = loss + torch.mean((lr - 1.0) ** 2) + torch.mean(lf ** 2)
+        loss = loss + torch.mean((lr - 1.0) ** 2) + torch.mean((lf + 1.0) ** 2)
     return loss / len(real_logits_list)
 
 

@@ -1,8 +1,9 @@
 """DP training (Stage 3): duration predictor.
 
 Paper recipe (arXiv 2503.23108):
-  L = L1(pred_duration_sec, gt_duration_sec)  (utterance-level scalar)
-  AdamW, lr=5e-4, batch=128, ~3k steps. Trivial.
+  L = L1(pred_duration_sec, gt_duration_sec)   (utterance-level scalar)
+  AdamW, lr=5e-4, batch=128, 3,000 iter
+  Reference encoder receives a 5%-95% random crop of input speech (paper Sec 4.2)
 
 Prereqs: AE trained + latents cached (same cache as TTL).
 
@@ -23,10 +24,12 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "analysis"))
 sys.path.insert(0, str(ROOT / "py"))
 
-from training.data.ttl_dataset import TTLDataset, collate_ttl, TTL_NORMALIZER_SCALE
-from training.models.style_encoder import StyleEncoderDP
+from training.data.ttl_dataset import TTLDataset, collate_dp, TTL_NORMALIZER_SCALE
+from training.models.style_encoder import StyleEncoderDP, StyleEncoderDPPaper, StyleEncoderDPTextPaper
 
-from torch_duration_predictor import DurationPredictor, load_dp_weights  # type: ignore
+from torch_duration_predictor import (
+    DurationPredictor, DurationPredictorPaper, load_dp_weights,
+)  # type: ignore
 
 
 @dataclass
@@ -34,32 +37,26 @@ class DPConfig:
     cache_dir: str = ""
     unicode_indexer: str = "assets/onnx/unicode_indexer.json"
     lang: str = "ko"
+    # mode: paper-faithful from-scratch vs shipped fine-tune
+    paper_faithful: bool = True   # use StyleEncoderDPPaper (out_scale=1.0)
+    paper_text_estimator: bool = False  # experimental: interpret paper's inconsistent DP dim text literally-ish
+    fine_tune: bool = False        # if True: load shipped DP, freeze, train only style enc
+    dp_onnx: str = "assets/onnx/duration_predictor.onnx"
+    attn_type: str = "rope"        # paper A.3.2: DP sentence encoder self-attn uses RoPE
+    # optim (paper Sec 4.2)
     lr: float = 5e-4
     beta1: float = 0.9
     beta2: float = 0.999
     weight_decay: float = 0.0
-    grad_clip: float = 1.0
-    steps: int = 3000
-    batch_size: int = 32
+    grad_clip: float | None = None   # paper doesn't specify; default off
+    # schedule
+    steps: int = 3000              # paper: 3,000 iter
+    batch_size: int = 128          # paper: 128
     num_workers: int = 2
     log_every: int = 20
-    ckpt_every: int = 1000
+    ckpt_every: int = 500
     out_dir: str = "training/runs/dp"
     resume: str | None = None
-    # Fine-tune: load shipped DP and freeze; train only StyleEncoderDP.
-    fine_tune: bool = True
-    dp_onnx: str = "assets/onnx/duration_predictor.onnx"
-
-
-def _get_durations(batch, sample_rate: int = 44100, hop: int = 512):
-    """Recover ground-truth duration (seconds) from the TTL dataset item.
-    frame_mask tells us actual T_ae frames → duration in samples ≈ T_ae * hop.
-    """
-    # frame_mask: [B, 1, T_ae_max]
-    T_ae = batch["frame_mask"].sum(dim=(-2, -1))  # [B]  number of valid AE frames
-    # Note: AE uses center=True STFT so output is exactly T_ae * hop samples for the decoder.
-    duration = T_ae * hop / sample_rate
-    return duration
 
 
 def _inf_loader(dl):
@@ -76,8 +73,19 @@ def main():
     ap.add_argument("--batch_size", type=int, default=None)
     ap.add_argument("--out_dir", type=str, default=None)
     ap.add_argument("--resume", type=str, default=None)
-    ap.add_argument("--from_scratch", action="store_true",
-                    help="disable fine-tune; train DP module from random init")
+    ap.add_argument("--num_workers", type=int, default=None)
+    ap.add_argument("--fine_tune", action="store_true",
+                    help="load shipped DP and freeze; train only style enc")
+    ap.add_argument("--shipped_dim", action="store_true",
+                    help="use shipped StyleEncoderDP (out_scale=0.0625) instead of paper")
+    ap.add_argument("--paper_text_estimator", action="store_true",
+                    help="experimental: use inferred 64-ref / 128-input DP estimator despite ONNX mismatch")
+    ap.add_argument("--attn_type", type=str, default=None, choices=["rope", "relpos"],
+                    help="DP sentence encoder self-attn position encoding (paper: rope; default rope for paper-faithful, relpos for fine-tune)")
+    ap.add_argument("--ckpt_every", type=int, default=None)
+    ap.add_argument("--log_every", type=int, default=None)
+    ap.add_argument("--grad_clip", type=float, default=None,
+                    help="optional grad-norm clip; default off (paper unspecified)")
     ap.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     args = ap.parse_args()
 
@@ -86,7 +94,17 @@ def main():
     if args.batch_size is not None: cfg.batch_size = args.batch_size
     if args.out_dir is not None:    cfg.out_dir = args.out_dir
     if args.resume is not None:     cfg.resume = args.resume
-    if args.from_scratch:           cfg.fine_tune = False
+    if args.num_workers is not None: cfg.num_workers = args.num_workers
+    if args.fine_tune:              cfg.fine_tune = True; cfg.paper_faithful = False
+    if args.shipped_dim:            cfg.paper_faithful = False
+    if args.paper_text_estimator:   cfg.paper_text_estimator = True
+    if args.attn_type is not None:  cfg.attn_type = args.attn_type
+    # Fine-tune path loads shipped ONNX weights which were trained with relpos;
+    # force relpos there so load_dp_weights matches the parameter layout.
+    if cfg.fine_tune:               cfg.attn_type = "relpos"
+    if args.ckpt_every is not None: cfg.ckpt_every = args.ckpt_every
+    if args.log_every is not None:  cfg.log_every = args.log_every
+    if args.grad_clip is not None:  cfg.grad_clip = args.grad_clip
     if args.smoke:
         cfg.steps = 200
         cfg.batch_size = 4
@@ -99,32 +117,42 @@ def main():
         json.dump(asdict(cfg), f, indent=2)
     device = torch.device(args.device)
     print(f"[info] device: {device}")
+    print(f"[info] paper_faithful={cfg.paper_faithful}  fine_tune={cfg.fine_tune}")
 
     ds = TTLDataset(cfg.cache_dir, cfg.unicode_indexer, lang=cfg.lang)
-    coll = partial(collate_ttl, mean=ds.mean, std=ds.std)
+    coll = partial(collate_dp, mean=ds.mean, std=ds.std, scale=TTL_NORMALIZER_SCALE)
     dl = DataLoader(ds, batch_size=cfg.batch_size, shuffle=True,
                     num_workers=cfg.num_workers, drop_last=True, pin_memory=True,
                     collate_fn=coll, persistent_workers=cfg.num_workers > 0)
     data_iter = iter(_inf_loader(dl))
     print(f"[info] dataset: {len(ds)} utterances")
 
-    # z-score stats for AE latent (see train_ttl.py for rationale).
-    _ae_mean = ds.mean.to(device).view(1, -1, 1)
-    _ae_std  = ds.std.to(device).view(1, -1, 1)
-
     # models
-    dp = DurationPredictor().to(device)
-    style_enc = StyleEncoderDP().to(device)
+    print(f"[info] attn_type={cfg.attn_type}")
+    if cfg.paper_faithful:
+        if cfg.paper_text_estimator:
+            # Experimental reading of paper A.3.1/A.3.3. The PDF's dimensions are
+            # inconsistent, so this is not the default.
+            style_enc = StyleEncoderDPTextPaper().to(device)      # outputs [B, 64]
+            dp = DurationPredictorPaper(attn_type=cfg.attn_type).to(device)
+        else:
+            # Default: use the deployed ONNX estimator shape (64 text + 8*16 ref).
+            style_enc = StyleEncoderDPPaper().to(device)          # outputs [B, 8, 16]
+            dp = DurationPredictor(attn_type=cfg.attn_type).to(device)
+    else:
+        # Shipped: ref [8,16]=128 + text 64 → estimator(192→128→1)
+        style_enc = StyleEncoderDP().to(device)                    # outputs [B, 8, 16]
+        dp = DurationPredictor(attn_type=cfg.attn_type).to(device)
 
     if cfg.fine_tune:
         load_dp_weights(dp, cfg.dp_onnx)
         for p in dp.parameters(): p.requires_grad_(False)
         dp.eval()
         params = list(style_enc.parameters())
-        print(f"[info] fine-tune mode: shipped DP loaded + frozen; training StyleEncoderDP only.")
+        print(f"[info] fine-tune mode: shipped DP frozen, training style_enc only")
     else:
         params = list(dp.parameters()) + list(style_enc.parameters())
-        print(f"[info] from-scratch mode: training DP + StyleEncoderDP.")
+        print(f"[info] from-scratch mode: training DP + style_enc")
     n = sum(p.numel() for p in params)
     print(f"[info] trainable params: {n/1e6:.2f}M")
 
@@ -150,27 +178,28 @@ def main():
     t_start = time.time()
     for step in range(step0 + 1, cfg.steps + 1):
         batch = next(data_iter)
-        z_ae      = batch["z_ae"].to(device, non_blocking=True)
-        text_ids  = batch["text_ids"].to(device, non_blocking=True)
-        text_mask = batch["text_mask"].to(device, non_blocking=True)
-        gt_dur    = _get_durations(batch).to(device, non_blocking=True)
+        text_ids          = batch["text_ids"].to(device, non_blocking=True)
+        text_mask         = batch["text_mask"].to(device, non_blocking=True)
+        z_ae_ref_dp       = batch["z_ae_ref_dp"].to(device, non_blocking=True)
+        ref_dp_frame_mask = batch["ref_dp_frame_mask"].to(device, non_blocking=True)
+        gt_dur            = batch["gt_duration_sec"].to(device, non_blocking=True)
 
-        z_ae_norm = (z_ae - _ae_mean) / _ae_std           # z-score to ~N(0,1)
-        style_dp = style_enc(z_ae_norm)                   # [B, 8, 16]
-        pred_dur = dp(text_ids, style_dp, text_mask)       # [B]
+        style_dp = style_enc(z_ae_ref_dp, ref_dp_frame_mask)         # [B, 8, 16]
+        pred_dur = dp(text_ids, style_dp, text_mask)                  # [B]
 
         loss = torch.abs(pred_dur - gt_dur).mean()
 
         opt.zero_grad(set_to_none=True)
         loss.backward()
-        gn = torch.nn.utils.clip_grad_norm_(params, cfg.grad_clip)
+        # measure grad norm regardless; clip only if grad_clip is set (paper: unspecified)
+        clip_at = cfg.grad_clip if cfg.grad_clip is not None else float("inf")
+        gn = torch.nn.utils.clip_grad_norm_(params, clip_at)
         opt.step()
 
         if step % cfg.log_every == 0:
             elapsed = time.time() - t_start
             sps = (step - step0) / max(elapsed, 1e-9)
             mae = loss.item()
-            # Relative error = MAE / mean_gt_duration
             rel = mae / gt_dur.mean().item()
             print(f"[step {step}/{cfg.steps}]  L1={mae:.4f}s  "
                   f"rel={100*rel:.1f}%  gn={gn:.2f}  |  {sps:.2f} step/s",

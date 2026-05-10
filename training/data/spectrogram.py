@@ -1,14 +1,17 @@
 """Spectrogram feature extractor for Supertonic AE encoder.
 
-Input : waveform [B, T_samples] at 44.1 kHz
-Output: features [B, 1253, T_frames] = concat(log_STFT_magnitude[1025], log_mel[228])
+Two configurations:
+  - mode="concat"  -> [B, 1253, T_frames] = concat(log_STFT[1025], log_mel[228])
+                      Matches shipped ONNX (`tts.json > ae.encoder.idim = 1253`).
+                      Use this if downstream code interfaces with shipped vocoder.
+  - mode="mel"     -> [B,  228, T_frames] = log_mel[228]
+                      Matches the SupertonicTTS paper (Sec 3.1, App B.1):
+                      "log-scaled mel spectrogram input ... 228 mel bands".
+                      Use this for paper-faithful from-scratch training.
 
-From tts.json > ae.encoder.spec_processor:
+Common parameters (from tts.json > ae.encoder.spec_processor):
   n_fft=2048, win_length=2048, hop_length=512, n_mels=228
   sample_rate=44100, eps=1e-5, norm_mean=0.0, norm_std=1.0
-
-The idim=1253 mystery is resolved as:
-  1025 (STFT magnitude bins = n_fft/2 + 1) + 228 (mel bins) = 1253
 """
 from __future__ import annotations
 import torch
@@ -17,7 +20,10 @@ import torchaudio
 
 
 class SpecProcessor(nn.Module):
-    """Convert waveform [B, T] to 1253-dim features [B, 1253, T_frames]."""
+    """Convert waveform [B, T] to feature tensor [B, feature_dim, T_frames].
+
+    feature_dim = 1253 (mode="concat") or 228 (mode="mel").
+    """
     def __init__(
         self,
         n_fft: int = 2048,
@@ -28,13 +34,16 @@ class SpecProcessor(nn.Module):
         eps: float = 1e-5,
         norm_mean: float = 0.0,
         norm_std: float = 1.0,
+        mode: str = "concat",
     ):
         super().__init__()
+        assert mode in ("concat", "mel"), f"mode must be 'concat' or 'mel', got {mode!r}"
         self.n_fft = n_fft
         self.hop_length = hop_length
         self.n_mels = n_mels
         self.sample_rate = sample_rate
         self.eps = eps
+        self.mode = mode
 
         # Spectrogram: outputs |STFT|^2 (power=2) or |STFT| (power=1). We want magnitude.
         self.spec = torchaudio.transforms.Spectrogram(
@@ -56,18 +65,23 @@ class SpecProcessor(nn.Module):
 
     @property
     def feature_dim(self) -> int:
-        return self.n_stft_bins + self.n_mels  # 1025 + 228 = 1253
+        if self.mode == "mel":
+            return self.n_mels                       # 228
+        return self.n_stft_bins + self.n_mels        # 1025 + 228 = 1253
 
     def forward(self, wav: torch.Tensor) -> torch.Tensor:
-        """wav [B, T] -> features [B, 1253, T_frames]."""
+        """wav [B, T] -> features [B, feature_dim, T_frames]."""
         if wav.dim() == 1:
             wav = wav.unsqueeze(0)
-        mag = self.spec(wav)                               # [B, 1025, T_f]
-        mel = self.mel(wav)                                # [B, 228, T_f]
-        log_mag = torch.log(mag + self.eps)                # log magnitude STFT
-        log_mel = torch.log(mel + self.eps)                # log mel
-        feats = torch.cat([log_mag, log_mel], dim=1)       # [B, 1253, T_f]
-        feats = (feats - self.norm_mean) / self.norm_std   # (no-op with default 0/1)
+        mel = self.mel(wav)                                  # [B, 228, T_f]
+        log_mel = torch.log(mel + self.eps)
+        if self.mode == "mel":
+            feats = log_mel
+        else:
+            mag = self.spec(wav)                             # [B, 1025, T_f]
+            log_mag = torch.log(mag + self.eps)
+            feats = torch.cat([log_mag, log_mel], dim=1)     # [B, 1253, T_f]
+        feats = (feats - self.norm_mean) / self.norm_std     # (no-op with default 0/1)
         return feats
 
 

@@ -1,22 +1,30 @@
-"""TTL training (Stage 2): text-to-latent flow matching.
+"""TTL training (Stage 2): text-to-latent flow matching, paper-faithful.
 
 Paper recipe (arXiv 2503.23108):
-  L_TTL = E[ || m ⊙ ( v_θ(z_t, z_ref, c, t) - (z_1 - (1-σ)·z_0) ) ||_1 ]
-  AdamW, lr=5e-4, halve every 300k, batch=64 × K_e=6, 700k steps (paper).
+  L_TTL = E[ || m ⊙ ( v_θ(z_t, z_ref, c, t) - (z_1 - (1-σ_min)·z_0) ) ||_1 ]
+
+Paper-faithful settings (defaults):
+  AdamW, lr=5e-4, halve every 300k, 700k iter, batch=64, K_e=4
+  σ_min = 1e-8, p_uncond = 0.05 (joint dropout)
+  Reference encoder: random crop 0.2-9 s (≤ ½ utt duration)
+  Loss mask m: 1 OUTSIDE the reference crop, 0 INSIDE — prevents leakage
+  Channel-wise z-score latent normalization (no extra scale)
+
+Paper architecture (defaults):
+  VectorField: dim=256, style_dim=128, text_dim=128, intermediate=1024, ksz=5
+  StyleEncoder: hdim=128, value_dim=128 (StyleEncoderTTLPaper)
+  TextEncoder: dim=128, shared 50x128 reference key
 
 KSS-adapted (RTX 3090 × 1):
-  batch=8, K_e=6 → effective batch 48, ~100-200k steps.
+  batch=8, K_e=4 → effective 32 vs paper 64*4=256
 
 Run:
   # Prereq: AE trained + latents cached:
   #   python -m training.scripts.cache_latents --ckpt ... --out_dir ./cache
-  #
-  # Then:
-  python -m training.scripts.train_ttl --cache_dir ./cache --smoke
-  python -m training.scripts.train_ttl --cache_dir ./cache --steps 150000
+  python -m training.scripts.train_ttl --cache_dir ./cache --steps 700000
 """
 from __future__ import annotations
-import os, sys, json, argparse, time
+import os, sys, json, argparse, time, random
 from dataclasses import dataclass, asdict
 from functools import partial
 from pathlib import Path
@@ -30,14 +38,14 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "analysis"))
 
 from training.data.ttl_dataset import TTLDataset, collate_ttl, TTL_NORMALIZER_SCALE
-from training.models.style_encoder import StyleEncoderTTL
+from training.models.style_encoder import StyleEncoderTTL, StyleEncoderTTLPaper
 from training.losses.flow_matching import (
     sample_flow_matching_inputs, cfm_loss,
     UncondMasker, UncondMaskerConfig, batch_expand,
+    SIGMA_MIN,
 )
 
-# Import verified inference modules from analysis/
-from torch_text_encoder import TextEncoder, load_text_encoder_weights   # type: ignore
+from torch_text_encoder import TextEncoder, TextEncoderPaper, load_text_encoder_weights   # type: ignore
 from torch_vector_estimator import VectorField, load_ve_weights         # type: ignore
 
 
@@ -47,31 +55,30 @@ class TTLConfig:
     cache_dir: str = ""
     unicode_indexer: str = "assets/onnx/unicode_indexer.json"
     lang: str = "ko"
-    # fine-tune: load shipped text_encoder + vector_estimator as init and freeze.
-    # This collapses training to just StyleEncoderTTL (+ uncond_masker tokens) —
-    # 1.5M params instead of 44M — and makes convergence tractable on small data.
-    fine_tune: bool = True
+    # mode: paper-faithful from-scratch vs shipped fine-tune
+    paper_faithful: bool = True   # if True: paper dims (VF=256, style=128); else shipped (VF=512, style=256)
+    fine_tune: bool = False       # if True: load shipped TE+VF, freeze, train only style_encoder
     te_onnx: str = "assets/onnx/text_encoder.onnx"
     ve_onnx: str = "assets/onnx/vector_estimator.onnx"
-    # optim
+    # optim (paper B.2)
     lr: float = 5e-4
     beta1: float = 0.9
     beta2: float = 0.999
     weight_decay: float = 0.0
-    grad_clip: float = 1.0
+    grad_clip: float | None = None   # paper does not specify grad clipping; default off
     # schedule
-    steps: int = 700_000
+    steps: int = 700_000          # OPTIMIZER UPDATES (matches paper iter count)
     lr_halve_every: int = 300_000
-    batch_size: int = 8
-    k_expand: int = 6
+    batch_size: int = 8           # microbatch per forward
+    k_expand: int = 4             # paper Sec 3.2.3: K_e=4
+    grad_accum: int = 1           # microbatches per optimizer update; effective batch = batch_size * grad_accum
+    attn_type: str = "rope"       # paper A.2.2: text self-attention uses RoPE
     num_workers: int = 2
-    # CFG dropout
-    prob_both_uncond: float = 0.04
-    prob_text_uncond: float = 0.01
-    uncond_std: float = 0.1
+    # CFG dropout (paper B.2: single joint p_uncond=0.05)
+    prob_uncond: float = 0.05
     # logging
     log_every: int = 50
-    ckpt_every: int = 20_000
+    ckpt_every: int = 50_000
     out_dir: str = "training/runs/ttl"
     resume: str | None = None
 
@@ -100,19 +107,39 @@ def main():
     ap.add_argument("--smoke", action="store_true")
     ap.add_argument("--steps", type=int, default=None)
     ap.add_argument("--batch_size", type=int, default=None)
+    ap.add_argument("--k_expand", type=int, default=None)
     ap.add_argument("--out_dir", type=str, default=None)
     ap.add_argument("--resume", type=str, default=None)
-    ap.add_argument("--from_scratch", action="store_true",
-                    help="disable fine-tune mode; train text_encoder + vector_estimator from random init")
+    ap.add_argument("--shipped_dim", action="store_true",
+                    help="use shipped 512-dim arch instead of paper 256-dim (for fine-tune)")
+    ap.add_argument("--fine_tune", action="store_true",
+                    help="load shipped TE+VF and freeze, train only style_encoder")
+    ap.add_argument("--ckpt_every", type=int, default=None)
+    ap.add_argument("--log_every", type=int, default=None)
+    ap.add_argument("--num_workers", type=int, default=None)
+    ap.add_argument("--grad_accum", type=int, default=None,
+                    help="microbatches per optimizer update (effective batch = batch_size * grad_accum)")
+    ap.add_argument("--attn_type", type=str, default="rope", choices=["rope", "relpos"],
+                    help="text encoder self-attn position encoding (paper: rope)")
+    ap.add_argument("--grad_clip", type=float, default=None,
+                    help="optional grad-norm clip; default off (paper unspecified)")
     ap.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     args = ap.parse_args()
 
     cfg = TTLConfig(cache_dir=args.cache_dir)
     if args.steps is not None:      cfg.steps = args.steps
     if args.batch_size is not None: cfg.batch_size = args.batch_size
+    if args.k_expand is not None:   cfg.k_expand = args.k_expand
     if args.out_dir is not None:    cfg.out_dir = args.out_dir
     if args.resume is not None:     cfg.resume = args.resume
-    if args.from_scratch:           cfg.fine_tune = False
+    if args.shipped_dim:            cfg.paper_faithful = False
+    if args.fine_tune:              cfg.fine_tune = True; cfg.paper_faithful = False
+    if args.ckpt_every is not None: cfg.ckpt_every = args.ckpt_every
+    if args.log_every is not None:  cfg.log_every = args.log_every
+    if args.num_workers is not None: cfg.num_workers = args.num_workers
+    if args.grad_accum is not None: cfg.grad_accum = args.grad_accum
+    if args.attn_type is not None:  cfg.attn_type = args.attn_type
+    if args.grad_clip is not None:  cfg.grad_clip = args.grad_clip
     if args.smoke:
         cfg.steps = 300
         cfg.batch_size = 2
@@ -127,59 +154,64 @@ def main():
 
     device = torch.device(args.device)
     print(f"[info] device: {device}")
+    print(f"[info] paper_faithful={cfg.paper_faithful}  fine_tune={cfg.fine_tune}  σ_min={SIGMA_MIN}")
 
     # --- data ---
     ds, dl = make_loader(cfg)
     print(f"[info] dataset: {len(ds)} utterances")
     data_iter = iter(_inf_loader(dl))
 
-    # z-score stats for normalizing AE latent before the style encoder.
-    # Raw z_ae from the (undertrained) AE has arbitrary scale (std ~100s~1000s);
-    # feeding it unnormalized makes style_encoder outputs explode (std 1e4+) and
-    # kills downstream gradients. We standardize here so style_encoder sees ~N(0,1).
-    _ae_mean = ds.mean.to(device).view(1, -1, 1)
-    _ae_std  = ds.std.to(device).view(1, -1, 1)
-
     # --- models ---
-    text_encoder = TextEncoder().to(device)
-    style_encoder = StyleEncoderTTL().to(device)
-    vector_field = VectorField().to(device)
+    if cfg.paper_faithful:
+        # paper A.2.1 / A.2.2 / A.2.3: text_dim=128, style_dim=128, VF dim=256
+        text_encoder = TextEncoderPaper(style_dim=128, attn_type=cfg.attn_type).to(device)
+        style_encoder = StyleEncoderTTLPaper().to(device)
+        vector_field = VectorField(
+            dim=256, latent_dim=144, n_outer=4, time_dim=64,
+            inter=1024, ksz=5, text_dim=128, style_dim=128,
+            learn_style_prototype=False,
+        ).to(device)
+        text_dim = 128
+        style_value_dim = 128
+    else:
+        # shipped 512-dim arch (for fine-tune of shipped weights)
+        text_encoder = TextEncoder().to(device)   # default style_dim=256
+        style_encoder = StyleEncoderTTL().to(device)
+        vector_field = VectorField().to(device)   # default dim=512, style_dim=256
+        text_dim = 256
+        style_value_dim = 256
     uncond_masker = UncondMasker(UncondMaskerConfig(
-        prob_both_uncond=cfg.prob_both_uncond,
-        prob_text_uncond=cfg.prob_text_uncond,
-        std=cfg.uncond_std,
+        prob_uncond=cfg.prob_uncond,
+        text_dim=text_dim,
+        n_style=50,
+        style_value_dim=style_value_dim,
     )).to(device)
 
-    # Fine-tune mode: load shipped weights into text_encoder + vector_field, freeze them.
-    # StyleEncoderTTL starts random and is the only "real" trainable module; adapts a
-    # new speaker/dataset into the pre-trained conditioning pipeline.
     if cfg.fine_tune:
         load_text_encoder_weights(text_encoder, cfg.te_onnx)
         load_ve_weights(vector_field, cfg.ve_onnx)
         for p in text_encoder.parameters(): p.requires_grad_(False)
         for p in vector_field.parameters(): p.requires_grad_(False)
-        text_encoder.eval()
-        vector_field.eval()
+        text_encoder.eval(); vector_field.eval()
         trainable = list(style_encoder.parameters()) + list(uncond_masker.parameters())
-        print(f"[info] fine-tune mode: shipped weights loaded, TE+VF frozen.")
+        print(f"[info] fine-tune: shipped TE+VF frozen, train only style_encoder + uncond_masker")
     else:
         trainable = (list(text_encoder.parameters()) + list(style_encoder.parameters())
                      + list(vector_field.parameters()) + list(uncond_masker.parameters()))
-        print(f"[info] from-scratch mode: training all modules.")
+        print(f"[info] from-scratch: training all modules")
 
-    all_params = trainable
-    n_params = sum(p.numel() for p in all_params)
-    print(f"[info] trainable params: {n_params/1e6:.2f}M")
+    n_te = sum(p.numel() for p in text_encoder.parameters())
+    n_se = sum(p.numel() for p in style_encoder.parameters())
+    n_vf = sum(p.numel() for p in vector_field.parameters())
+    n_um = sum(p.numel() for p in uncond_masker.parameters())
+    n_train = sum(p.numel() for p in trainable)
+    print(f"[info] params: TE={n_te/1e6:.2f}M  SE={n_se/1e6:.2f}M  VF={n_vf/1e6:.2f}M  UM={n_um/1e6:.2f}M  | trainable={n_train/1e6:.2f}M")
 
-    # --- optim ---
-    opt = torch.optim.AdamW(all_params,
-                            lr=cfg.lr, betas=(cfg.beta1, cfg.beta2),
+    opt = torch.optim.AdamW(trainable, lr=cfg.lr, betas=(cfg.beta1, cfg.beta2),
                             weight_decay=cfg.weight_decay)
-    # LR schedule: halve every N steps
     def lr_at(step):
         return cfg.lr * (0.5 ** (step // cfg.lr_halve_every))
 
-    # --- resume ---
     step0 = 0
     if cfg.resume:
         ck = torch.load(cfg.resume, map_location=device, weights_only=False)
@@ -197,47 +229,59 @@ def main():
     except Exception:
         tb = None
 
-    # --- train ---
-    # In fine-tune mode, keep frozen modules in eval (no grad, no train-mode drift).
     style_encoder.train(); uncond_masker.train()
     if not cfg.fine_tune:
         text_encoder.train(); vector_field.train()
     t_start = time.time()
+
+    accum = max(1, cfg.grad_accum)
+    print(f"[info] grad_accum={accum}  "
+          f"(effective batch = batch_size {cfg.batch_size} × accum {accum} = {cfg.batch_size * accum} unique samples per optimizer update)")
+
     for step in range(step0 + 1, cfg.steps + 1):
-        batch = next(data_iter)
-        z_1       = batch["z_ttl"].to(device, non_blocking=True)       # [B, 144, L]
-        lat_mask  = batch["latent_mask"].to(device, non_blocking=True) # [B, 1, L]
-        z_ae      = batch["z_ae"].to(device, non_blocking=True)        # [B, 24, T_ae]
-        text_ids  = batch["text_ids"].to(device, non_blocking=True)    # [B, T_text]
-        text_mask = batch["text_mask"].to(device, non_blocking=True)   # [B, 1, T_text]
-        B = z_1.shape[0]
-
-        # --- condition encoders (run once per original batch, will be expanded) ---
-        z_ae_norm = (z_ae - _ae_mean) / _ae_std                      # z-score to ~N(0,1)
-        style_ttl = style_encoder(z_ae_norm)                         # [B, 50, 256]
-        text_emb  = text_encoder(text_ids, style_ttl, text_mask)     # [B, 256, T_text]
-
-        # CFG dropout
-        text_emb_m, style_ttl_m = uncond_masker(text_emb, style_ttl)
-
-        # --- batch expand for K different (z_0, t) per sample ---
-        K = cfg.k_expand
-        z1_e, lm_e, te_e, st_e, tm_e = batch_expand(
-            z_1, lat_mask, text_emb_m, style_ttl_m, text_mask, K=K
-        )
-
-        # Sample z_t, target velocity
-        z_t, target, _z0, t = sample_flow_matching_inputs(z1_e, lm_e)
-
-        # Velocity prediction
-        v_pred = vector_field.velocity(z_t, te_e, st_e, lm_e, tm_e, t)
-        loss = cfm_loss(v_pred, target, lm_e)
-
-        # --- backward ---
+        # One outer step = `accum` microbatches followed by ONE optimizer update.
         opt.zero_grad(set_to_none=True)
-        loss.backward()
-        gn = torch.nn.utils.clip_grad_norm_(all_params, cfg.grad_clip)
-        # update LR
+        loss_acc = 0.0   # mean loss across microbatches (for logging)
+        for micro in range(accum):
+            batch = next(data_iter)
+            z_1            = batch["z_ttl"].to(device, non_blocking=True)
+            latent_mask    = batch["latent_mask"].to(device, non_blocking=True)
+            ref_loss_mask  = batch["ref_loss_mask"].to(device, non_blocking=True)
+            z_ae_ref       = batch["z_ae_ref"].to(device, non_blocking=True)
+            ref_frame_mask = batch["ref_frame_mask"].to(device, non_blocking=True)
+            text_ids       = batch["text_ids"].to(device, non_blocking=True)
+            text_mask      = batch["text_mask"].to(device, non_blocking=True)
+
+            # paper m: loss only on non-reference, non-pad TTL frames
+            loss_mask = latent_mask * ref_loss_mask
+
+            # Reference encoder receives the CROPPED latent (paper Sec 3.2.4)
+            style_ttl = style_encoder(z_ae_ref, ref_frame_mask)
+            text_emb  = text_encoder(text_ids, style_ttl, text_mask)
+
+            # CFG dropout (single joint p_uncond=0.05, paper B.2)
+            text_emb_m, style_ttl_m = uncond_masker(text_emb, style_ttl)
+
+            # K_e batch expand (paper Sec 3.2.3)
+            K = cfg.k_expand
+            z1_e, lm_e, lossm_e, te_e, st_e, tm_e = batch_expand(
+                z_1, latent_mask, loss_mask, text_emb_m, style_ttl_m, text_mask, K=K
+            )
+            z_t, target, _z0, t = sample_flow_matching_inputs(z1_e, lm_e)
+
+            style_prototype = text_encoder.reference_key if cfg.paper_faithful else None
+            v_pred = vector_field.velocity(
+                z_t, te_e, st_e, lm_e, tm_e, t,
+                style_prototype=style_prototype,
+            )
+            micro_loss = cfm_loss(v_pred, target, lossm_e)
+
+            # Scale for grad accumulation; sum-of-mean over microbatches gives correct mean grad.
+            (micro_loss / accum).backward()
+            loss_acc += micro_loss.item() / accum
+
+        clip_at = cfg.grad_clip if cfg.grad_clip is not None else float("inf")
+        gn = torch.nn.utils.clip_grad_norm_(trainable, clip_at)
         lr_now = lr_at(step)
         for pg in opt.param_groups: pg["lr"] = lr_now
         opt.step()
@@ -245,14 +289,14 @@ def main():
         if step % cfg.log_every == 0:
             elapsed = time.time() - t_start
             sps = (step - step0) / max(elapsed, 1e-9)
-            print(f"[step {step}/{cfg.steps}]  loss={loss.item():.4f}  "
-                  f"gn={gn:.2f}  lr={lr_now:.2e}  |  {sps:.2f} step/s",
+            print(f"[step {step}/{cfg.steps}]  loss={loss_acc:.4f}  "
+                  f"gn={gn:.2f}  lr={lr_now:.2e}  |  {sps:.2f} upd/s",
                   flush=True)
             if tb is not None:
-                tb.add_scalar("loss/cfm", loss.item(), step)
+                tb.add_scalar("loss/cfm", loss_acc, step)
                 tb.add_scalar("grad_norm", gn.item(), step)
                 tb.add_scalar("lr", lr_now, step)
-                tb.add_scalar("sys/step_per_sec", sps, step)
+                tb.add_scalar("sys/upd_per_sec", sps, step)
 
         if step % cfg.ckpt_every == 0 or step == cfg.steps:
             ck_path = out_dir / f"ckpt_step{step:08d}.pt"

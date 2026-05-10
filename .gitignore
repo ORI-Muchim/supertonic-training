@@ -43,3 +43,12 @@ _*.py
 _*.wav
 _*.json
 _*.txt
+
+# Supertonic paper
+supertonic_paper_page18.png
+supertonic_paper.pdf
+supertonic_paper.txt
+
+# Local synth/diagnostic outputs (regeneratable artifacts)
+out_*.wav
+mel_compare.png

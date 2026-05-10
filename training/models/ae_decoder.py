@@ -10,6 +10,7 @@ analysis/ARCHITECTURE_MAP.md and analysis/torch_vocoder.py):
 
     latent [B, 24, T_frames]
       → causal Conv1d 24 → 512  (ksz=7)                        # stem
+      → BatchNorm1d(512)                                       # stem_norm (paper A.1.2)
       → 10 × ConvNeXt (ksz=7, dilations [1,2,4,1,2,4,1,1,1,1]) # main stack
       → BatchNorm1d(512)                                       # final_norm
       → causal Conv1d 512 → 2048 (ksz=3)                       # head.layer1
@@ -40,6 +41,7 @@ class AEDecoder(nn.Module):
         head_out: int = 512,  # = hop_length
         head_ksz: int = 3,
         pad_mode: str = "causal",
+        enable_stem_bn: bool = True,
     ):
         super().__init__()
         assert len(dilation_lst) == num_layers
@@ -49,6 +51,7 @@ class AEDecoder(nn.Module):
         self.pad_mode = pad_mode
 
         self.stem = nn.Conv1d(ldim, hdim, ksz_init, bias=True)
+        self.stem_norm = nn.BatchNorm1d(hdim) if enable_stem_bn else nn.Identity()
         self.convnext = nn.ModuleList([
             ConvNeXt1D(hdim, intermediate_dim, ksz, d, pad_mode=pad_mode)
             for d in dilation_lst
@@ -65,6 +68,7 @@ class AEDecoder(nn.Module):
         """z [B, ldim, T_frames] -> wav [B, T_frames * hop_length]."""
         B, _, T = z.shape
         x = self.stem(self._pad(z, self.ksz_init))
+        x = self.stem_norm(x)
         for blk in self.convnext:
             x = blk(x)
         x = self.final_norm(x)

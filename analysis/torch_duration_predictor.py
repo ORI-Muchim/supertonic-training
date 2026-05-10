@@ -175,14 +175,122 @@ class AttnEncoderLayer(nn.Module):
         return x
 
 
+# ----- Paper-faithful RoPE self-attention (paper A.2.2 + A.3.2) -----
+class RoPEAttention(nn.Module):
+    """Self-attention with rotary position embedding applied to Q and K.
+
+    Half-split RoPE (same convention as LARoPETextCrossAttention in
+    torch_vector_estimator.py): split the head_dim into two halves,
+    rotate by precomputed cos/sin angles per position.
+
+    Input  : [B, C, T]
+    mask   : [B, 1, T, T]  (optional)
+    Output : [B, C, T]
+    """
+    def __init__(self, channels, n_heads, max_pos: int = 4096, theta_base: float = 10000.0):
+        super().__init__()
+        assert channels % n_heads == 0
+        self.channels = channels
+        self.n_heads = n_heads
+        self.head_dim = channels // n_heads
+        assert self.head_dim % 2 == 0, "head_dim must be even for half-split RoPE"
+        self.half = self.head_dim // 2
+        self.conv_q = nn.Conv1d(channels, channels, 1, bias=True)
+        self.conv_k = nn.Conv1d(channels, channels, 1, bias=True)
+        self.conv_v = nn.Conv1d(channels, channels, 1, bias=True)
+        self.conv_o = nn.Conv1d(channels, channels, 1, bias=True)
+        # Precompute cos/sin for positions [0, max_pos) — extended on demand if T > max_pos.
+        freqs = theta_base ** (-torch.arange(self.half, dtype=torch.float32) / float(self.half))  # [half]
+        positions = torch.arange(max_pos, dtype=torch.float32).unsqueeze(1)                       # [max_pos, 1]
+        angles = positions * freqs.unsqueeze(0)                                                   # [max_pos, half]
+        self.register_buffer("cos_cache", angles.cos(), persistent=False)
+        self.register_buffer("sin_cache", angles.sin(), persistent=False)
+        self.theta_base = theta_base
+
+    def _get_cos_sin(self, T: int, device):
+        if T <= self.cos_cache.shape[0]:
+            return self.cos_cache[:T], self.sin_cache[:T]
+        # Extend on the fly
+        freqs = (self.theta_base ** (-torch.arange(self.half, dtype=torch.float32, device=device) / float(self.half)))
+        positions = torch.arange(T, dtype=torch.float32, device=device).unsqueeze(1)
+        angles = positions * freqs.unsqueeze(0)
+        return angles.cos(), angles.sin()
+
+    def _apply_rope(self, x, cos, sin):
+        """x: [B, H, T, D]; cos/sin: [T, half] -> rotate halves."""
+        x1, x2 = x.chunk(2, dim=-1)                       # each [B, H, T, half]
+        cos = cos.unsqueeze(0).unsqueeze(0)               # [1, 1, T, half]
+        sin = sin.unsqueeze(0).unsqueeze(0)
+        out1 = x1 * cos - x2 * sin
+        out2 = x1 * sin + x2 * cos
+        return torch.cat([out1, out2], dim=-1)
+
+    def forward(self, x, mask_attn):
+        """x: [B, C, T]; mask_attn: [B, 1, T, T] (1=keep, 0=pad)."""
+        B, C, T = x.shape
+        q = self.conv_q(x).reshape(B, self.n_heads, self.head_dim, T).transpose(-1, -2)  # [B,H,T,D]
+        k = self.conv_k(x).reshape(B, self.n_heads, self.head_dim, T).transpose(-1, -2)
+        v = self.conv_v(x).reshape(B, self.n_heads, self.head_dim, T).transpose(-1, -2)
+        cos, sin = self._get_cos_sin(T, x.device)
+        q = self._apply_rope(q, cos, sin)
+        k = self._apply_rope(k, cos, sin)
+        scores = torch.matmul(q, k.transpose(-1, -2)) / math.sqrt(self.head_dim)         # [B,H,T,T]
+        scores = scores.masked_fill(mask_attn == 0, -1e4)
+        attn = F.softmax(scores, dim=-1)
+        out = torch.matmul(attn, v)                                                       # [B,H,T,D]
+        out = out.transpose(-1, -2).reshape(B, C, T)
+        return self.conv_o(out)
+
+
+class RoPEAttnEncoderLayer(nn.Module):
+    """Transformer encoder layer with RoPE self-attention. Same residual/norm
+    layout as AttnEncoderLayer for drop-in replacement in TextMainEncoder /
+    SentenceEncoder paper variants.
+    """
+    def __init__(self, dim, n_heads, ffn_inter, max_pos: int = 4096):
+        super().__init__()
+        self.attn = RoPEAttention(dim, n_heads, max_pos=max_pos)
+        self.norm1 = nn.LayerNorm(dim, eps=1e-6)
+        self.conv1 = nn.Conv1d(dim, ffn_inter, 1, bias=True)
+        self.conv2 = nn.Conv1d(ffn_inter, dim, 1, bias=True)
+        self.norm2 = nn.LayerNorm(dim, eps=1e-6)
+
+    def forward(self, x, mask):
+        mask_attn = mask.unsqueeze(2) * mask.unsqueeze(3)   # [B,1,T,T]
+        a = self.attn(x, mask_attn) * mask
+        x = x + a
+        x = self.norm1(x.transpose(1, 2)).transpose(1, 2) * mask
+        f = self.conv1(x)
+        f = F.relu(f) * mask
+        f = self.conv2(f) * mask
+        x = x + f
+        x = self.norm2(x.transpose(1, 2)).transpose(1, 2) * mask
+        return x
+
+
 class SentenceEncoder(nn.Module):
     def __init__(self, vocab=163, char_dim=64, n_convnext=6, inter_conv=256,
-                 n_attn=2, n_heads=2, ffn_inter=256, ksz=5):
+                 n_attn=2, n_heads=2, ffn_inter=256, ksz=5,
+                 attn_type: str = "relpos"):
+        """attn_type:
+            'relpos' — RelPosAttention with windowed learned bias (shipped/ONNX-compat).
+            'rope'   — RoPE half-split rotary embeddings (paper A.3.2 line 1158).
+        """
         super().__init__()
+        self.attn_type = attn_type
         self.char_embedder = nn.Embedding(vocab, char_dim)
         self.sentence_token = nn.Parameter(torch.zeros(1, char_dim, 1))
         self.convnext = nn.ModuleList([MaskedConvNeXt1D(char_dim, inter_conv, ksz, 1) for _ in range(n_convnext)])
-        self.attn_layers = nn.ModuleList([AttnEncoderLayer(char_dim, n_heads, ffn_inter) for _ in range(n_attn)])
+        if attn_type == "relpos":
+            self.attn_layers = nn.ModuleList([
+                AttnEncoderLayer(char_dim, n_heads, ffn_inter) for _ in range(n_attn)
+            ])
+        elif attn_type == "rope":
+            self.attn_layers = nn.ModuleList([
+                RoPEAttnEncoderLayer(char_dim, n_heads, ffn_inter) for _ in range(n_attn)
+            ])
+        else:
+            raise ValueError(f"unknown attn_type: {attn_type}")
         self.proj_out = nn.Conv1d(char_dim, char_dim, 1, bias=False)
 
     def forward(self, text_ids, text_mask):
@@ -210,9 +318,15 @@ class SentenceEncoder(nn.Module):
 
 
 class DurationPredictor(nn.Module):
-    def __init__(self, sentence_dim=64, n_style=8, style_dim=16, hdim=128):
+    """Shipped-compatible DP. estimator input = sentence(64) + flatten(style[8x16])(128) = 192.
+
+    attn_type defaults to 'relpos' to keep load_dp_weights ONNX compat. Pass
+    'rope' for paper-faithful from-scratch training (paper A.3.2 line 1158).
+    """
+    def __init__(self, sentence_dim=64, n_style=8, style_dim=16, hdim=128,
+                 attn_type: str = "relpos"):
         super().__init__()
-        self.sentence_encoder = SentenceEncoder(char_dim=sentence_dim)
+        self.sentence_encoder = SentenceEncoder(char_dim=sentence_dim, attn_type=attn_type)
         self.fc1 = nn.Linear(sentence_dim + n_style * style_dim, hdim)
         self.act = nn.PReLU(num_parameters=1)
         self.fc2 = nn.Linear(hdim, 1)
@@ -228,6 +342,38 @@ class DurationPredictor(nn.Module):
         h = self.act(h)
         h = self.fc2(h)
         dur = torch.exp(h).squeeze(-1)                             # [B]
+        return dur
+
+
+class DurationPredictorPaper(nn.Module):
+    """Experimental DP estimator for a literal-ish reading of paper A.3.3:
+
+        'The duration estimator consists of two linear layers with a PReLU activation.
+         The first layer maintains the input and output dimensions ...'
+
+    The paper says ref_emb is 64-dim and text_emb is 64-dim, but also prints
+    a 164-dim first estimator layer. The released ONNX instead uses a 192-dim
+    input. This class is kept only for controlled experiments, not as default.
+    """
+    def __init__(self, sentence_dim=64, ref_dim=64, hdim=128,
+                 attn_type: str = "rope"):
+        super().__init__()
+        self.sentence_encoder = SentenceEncoder(char_dim=sentence_dim, attn_type=attn_type)
+        self.fc1 = nn.Linear(sentence_dim + ref_dim, hdim)
+        self.act = nn.PReLU(num_parameters=1)
+        self.fc2 = nn.Linear(hdim, 1)
+        self.sentence_dim = sentence_dim
+        self.ref_dim = ref_dim
+
+    def forward(self, text_ids, ref_emb, text_mask):
+        """ref_emb: [B, ref_dim]   (e.g. 64)"""
+        sent = self.sentence_encoder(text_ids, text_mask)         # [B, 64, 1]
+        sent = sent.reshape(sent.shape[0], -1)                    # [B, 64]
+        h = torch.cat([sent, ref_emb], dim=-1)                    # [B, 128]
+        h = self.fc1(h)
+        h = self.act(h)
+        h = self.fc2(h)
+        dur = torch.exp(h).squeeze(-1)                            # [B]
         return dur
 
 

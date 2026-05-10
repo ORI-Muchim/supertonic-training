@@ -138,8 +138,12 @@ class LARoPETextCrossAttention(nn.Module):
         self.W_key   = nn.Linear(ctx_dim, attn_dim, bias=True)
         self.W_value = nn.Linear(ctx_dim, attn_dim, bias=True)
         self.out_fc  = nn.Linear(attn_dim, dim, bias=True)
-        # learnable but baked: stored as [1, 1, half] = half = head_dim/2
-        self.register_buffer("theta", torch.zeros(1, 1, self.half))
+        # Length-aware RoPE frequency table. The released ONNX stores this as a
+        # constant: theta_j = 10 * 10000^(-2j/head_dim). Keep the same default
+        # for from-scratch training; load_ve_weights overwrites it for shipped
+        # compatibility.
+        theta = 10.0 * (10000.0 ** (-torch.arange(self.half, dtype=torch.float32) / float(self.half)))
+        self.register_buffer("theta", theta.view(1, 1, self.half))
         # positions 0..max_pos-1
         self.register_buffer("increments", torch.arange(max_pos, dtype=torch.float32).view(1, max_pos, 1))
         self.max_pos = max_pos
@@ -287,7 +291,8 @@ class MainBlock(nn.Module):
 # ========================== top-level ==========================
 class VectorField(nn.Module):
     def __init__(self, dim=512, latent_dim=144, n_outer=4, time_dim=64,
-                 inter=1024, ksz=5, text_dim=256, style_dim=256):
+                 inter=1024, ksz=5, text_dim=256, style_dim=256,
+                 learn_style_prototype: bool = True):
         super().__init__()
         self.time_encoder = TimeEncoder(time_dim, 256)
         self.proj_in = nn.Conv1d(latent_dim, dim, 1, bias=False)
@@ -300,9 +305,13 @@ class VectorField(nn.Module):
         # K = tanh(W_key(proto)) has non-trivial grad w.r.t. proto from step 0.
         # (This only affects from-scratch training; loading shipped ONNX weights
         #  overrides with the trained prototype, so bit-close verification is unaffected.)
-        self.style_prototype = nn.Parameter(torch.randn(1, 50, style_dim) * 0.02)
+        if learn_style_prototype:
+            self.style_prototype = nn.Parameter(torch.randn(1, 50, style_dim) * 0.02)
+        else:
+            self.register_parameter("style_prototype", None)
 
-    def velocity(self, noisy_latent, text_emb, style_ttl, latent_mask, text_mask, t_norm):
+    def velocity(self, noisy_latent, text_emb, style_ttl, latent_mask, text_mask, t_norm,
+                 style_prototype: torch.Tensor | None = None):
         """Return velocity v_θ(z_t, cond, t) only (for training — no ODE step applied).
 
         Args:
@@ -315,18 +324,27 @@ class VectorField(nn.Module):
         Returns:
             v : [B, latent_dim, L]  velocity prediction
         """
+        if style_prototype is None:
+            style_prototype = self.style_prototype
+        if style_prototype is None:
+            raise ValueError("VectorField.velocity requires style_prototype when learn_style_prototype=False")
+
         time_emb = self.time_encoder(t_norm)                  # [B, time_dim]
         x = self.proj_in(noisy_latent) * latent_mask
         for blk in self.main_blocks:
-            x = blk(x, time_emb, text_emb, style_ttl, latent_mask, text_mask, self.style_prototype)
+            x = blk(x, time_emb, text_emb, style_ttl, latent_mask, text_mask, style_prototype)
         x = self.last_convnext(x, latent_mask)
         v = self.proj_out(x) * latent_mask
         return v
 
-    def forward(self, noisy_latent, text_emb, style_ttl, latent_mask, text_mask, current_step, total_step):
+    def forward(self, noisy_latent, text_emb, style_ttl, latent_mask, text_mask,
+                current_step, total_step, style_prototype: torch.Tensor | None = None):
         """Inference forward: single Euler ODE step (matches vector_estimator.onnx output)."""
         t_norm = current_step / total_step
-        v = self.velocity(noisy_latent, text_emb, style_ttl, latent_mask, text_mask, t_norm)
+        v = self.velocity(
+            noisy_latent, text_emb, style_ttl, latent_mask, text_mask, t_norm,
+            style_prototype=style_prototype,
+        )
         dt = (1.0 / total_step).view(-1, 1, 1)
         denoised = (noisy_latent + dt * v) * latent_mask
         return denoised

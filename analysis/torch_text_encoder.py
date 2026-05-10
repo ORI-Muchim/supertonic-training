@@ -26,20 +26,36 @@ sys.path.insert(0, os.path.dirname(__file__))
 # reuse base blocks
 from torch_duration_predictor import (
     MaskedConvNeXt1D, AttnEncoderLayer, RelPosAttention,
+    RoPEAttnEncoderLayer,
     symmetric_pad_rep,
 )
 
 
 class TextMainEncoder(nn.Module):
     def __init__(self, vocab=163, dim=256, n_convnext=6, inter_conv=1024,
-                 n_attn=4, n_heads=4, ffn_inter=1024, ksz=5, window=4):
+                 n_attn=4, n_heads=4, ffn_inter=1024, ksz=5, window=4,
+                 attn_type: str = "relpos"):
+        """attn_type:
+            'relpos' — RelPosAttention with windowed learned bias (shipped/ONNX-compat).
+            'rope'   — RoPE half-split rotary embeddings (paper A.2.2 line 1075-1076).
+        """
         super().__init__()
+        self.attn_type = attn_type
         self.char_embedder = nn.Embedding(vocab, dim)
         self.convnext = nn.ModuleList([MaskedConvNeXt1D(dim, inter_conv, ksz, 1) for _ in range(n_convnext)])
-        self.attn_layers = nn.ModuleList([AttnEncoderLayer(dim, n_heads, ffn_inter, window_size=window) for _ in range(n_attn)])
+        if attn_type == "relpos":
+            self.attn_layers = nn.ModuleList([
+                AttnEncoderLayer(dim, n_heads, ffn_inter, window_size=window) for _ in range(n_attn)
+            ])
+        elif attn_type == "rope":
+            self.attn_layers = nn.ModuleList([
+                RoPEAttnEncoderLayer(dim, n_heads, ffn_inter) for _ in range(n_attn)
+            ])
+        else:
+            raise ValueError(f"unknown attn_type: {attn_type}")
 
     def forward(self, text_ids, text_mask):
-        e = self.char_embedder(text_ids).transpose(1, 2)  # [B, 256, T]
+        e = self.char_embedder(text_ids).transpose(1, 2)  # [B, dim, T]
         x = e * text_mask
         for blk in self.convnext:
             x = blk(x, text_mask)
@@ -52,17 +68,24 @@ class TextMainEncoder(nn.Module):
 
 class PrototypeCrossAttention(nn.Module):
     """Cross-attention where K is a fixed learnable prototype (post tanh),
-    V = W_value(style), Q = W_query(x). 2 heads × head_dim=128 (for text_encoder)."""
-    def __init__(self, dim=256, n_heads=2, n_style=50):
+    V = W_value(style), Q = W_query(x). 2 heads × head_dim=128 (for text_encoder).
+
+    style_dim: dim of input style tokens (paper: 128, shipped: 256).
+              Defaults to dim for backward compat with shipped weights.
+    """
+    def __init__(self, dim=256, n_heads=2, n_style=50, style_dim: int | None = None):
         super().__init__()
         assert dim % n_heads == 0
         self.dim = dim
         self.n_heads = n_heads
         self.head_dim = dim // n_heads
         self.n_style = n_style
+        if style_dim is None:
+            style_dim = dim
+        self.style_dim = style_dim
         # Linear W_query, W_value, out_fc (W_key has no weight — K comes from prototype)
         self.W_query = nn.Linear(dim, dim, bias=True)
-        self.W_value = nn.Linear(dim, dim, bias=True)
+        self.W_value = nn.Linear(style_dim, dim, bias=True)   # style_dim → dim (paper: 128 → 256)
         self.out_fc = nn.Linear(dim, dim, bias=True)
         # learnable prototype key: shape stored post-tanh as [n_heads, 1, head_dim, n_style]
         # At training time this would be a pre-tanh parameter; here we keep tanh output as buffer for exact match.
@@ -99,11 +122,56 @@ class PrototypeCrossAttention(nn.Module):
         return out
 
 
-class SpeechPromptedTextEncoder(nn.Module):
-    def __init__(self, dim=256, n_heads=2, n_style=50):
+class LearnablePrototypeCrossAttention(nn.Module):
+    """Paper-faithful cross-attention for from-scratch TTL training.
+
+    Q comes from text states, K comes from the shared 50x128 reference-key
+    prototype, and V comes from reference-value style tokens. Unlike the ONNX
+    compatibility path above, the prototype is trainable and projected through
+    W_key at runtime.
+    """
+    def __init__(self, dim=128, n_heads=2, n_style=50, style_dim: int | None = None):
         super().__init__()
-        self.attention1 = PrototypeCrossAttention(dim, n_heads, n_style)
-        self.attention2 = PrototypeCrossAttention(dim, n_heads, n_style)
+        assert dim % n_heads == 0
+        self.dim = dim
+        self.n_heads = n_heads
+        self.head_dim = dim // n_heads
+        self.n_style = n_style
+        if style_dim is None:
+            style_dim = dim
+        self.W_query = nn.Linear(dim, dim, bias=True)
+        self.W_key = nn.Linear(dim, dim, bias=True)
+        self.W_value = nn.Linear(style_dim, dim, bias=True)
+        self.out_fc = nn.Linear(dim, dim, bias=True)
+
+    def forward(self, x, style, text_mask, reference_key):
+        """x [B,T,C], style [B,50,style_dim], reference_key [1,50,C]."""
+        B, T, C = x.shape
+        proto = reference_key.expand(B, -1, -1)
+        q = self.W_query(x)
+        k = torch.tanh(self.W_key(proto))
+        v = self.W_value(style)
+
+        q = q.reshape(B, T, self.n_heads, self.head_dim).permute(0, 2, 1, 3)
+        k = k.reshape(B, self.n_style, self.n_heads, self.head_dim).permute(0, 2, 1, 3)
+        v = v.reshape(B, self.n_style, self.n_heads, self.head_dim).permute(0, 2, 1, 3)
+
+        scores = torch.matmul(q, k.transpose(-1, -2)) / math.sqrt(self.dim)
+        attn = F.softmax(scores, dim=-1)
+        mask_q = text_mask.unsqueeze(1).transpose(-1, -2)
+        attn = attn * mask_q
+
+        ctx = torch.matmul(attn, v)
+        ctx = ctx.permute(0, 2, 1, 3).reshape(B, T, C)
+        out = self.out_fc(ctx)
+        return out * text_mask.transpose(-1, -2)
+
+
+class SpeechPromptedTextEncoder(nn.Module):
+    def __init__(self, dim=256, n_heads=2, n_style=50, style_dim: int | None = None):
+        super().__init__()
+        self.attention1 = PrototypeCrossAttention(dim, n_heads, n_style, style_dim=style_dim)
+        self.attention2 = PrototypeCrossAttention(dim, n_heads, n_style, style_dim=style_dim)
         self.norm = nn.LayerNorm(dim, eps=1e-6)
 
     def forward(self, x_in_conv, style, text_mask):
@@ -123,15 +191,78 @@ class SpeechPromptedTextEncoder(nn.Module):
         return x
 
 
+class SpeechPromptedTextEncoderPaper(nn.Module):
+    """Paper-faithful speech-prompted text encoder.
+
+    The shared `reference_key` is the 50 learnable vectors described in A.2.2;
+    train_ttl also passes the same parameter into the VF estimator.
+    """
+    def __init__(self, dim=128, n_heads=2, n_style=50, style_dim: int | None = None):
+        super().__init__()
+        self.attention1 = LearnablePrototypeCrossAttention(dim, n_heads, n_style, style_dim=style_dim)
+        self.attention2 = LearnablePrototypeCrossAttention(dim, n_heads, n_style, style_dim=style_dim)
+        self.norm = nn.LayerNorm(dim, eps=1e-6)
+
+    def forward(self, x_in_conv, style, text_mask, reference_key):
+        x_orig = x_in_conv.transpose(1, 2)
+        q1 = x_orig + self.attention1(x_orig, style, text_mask, reference_key)
+        x = x_orig + self.attention2(q1, style, text_mask, reference_key)
+        x = self.norm(x)
+        x = x.transpose(1, 2)
+        return x * text_mask
+
+
 class TextEncoder(nn.Module):
-    def __init__(self, vocab=163, dim=256, n_style=50):
+    def __init__(self, vocab=163, dim=256, n_style=50, style_dim: int | None = None):
         super().__init__()
         self.text_encoder = TextMainEncoder(vocab=vocab, dim=dim)
-        self.speech_prompted_text_encoder = SpeechPromptedTextEncoder(dim=dim, n_heads=2, n_style=n_style)
+        self.speech_prompted_text_encoder = SpeechPromptedTextEncoder(
+            dim=dim, n_heads=2, n_style=n_style, style_dim=style_dim,
+        )
 
     def forward(self, text_ids, style_ttl, text_mask):
         x = self.text_encoder(text_ids, text_mask)                          # [B, 256, T]
         x = self.speech_prompted_text_encoder(x, style_ttl, text_mask)      # [B, 256, T]
+        return x
+
+
+class TextEncoderPaper(nn.Module):
+    """Paper-faithful TTL text encoder for from-scratch training.
+
+    Paper A.2.2:
+      - character embedding dim = 128
+      - 6 ConvNeXt blocks, kernel=5, intermediate=512
+      - 4 self-attention blocks, 4 heads, FFN/filter channels=512, RoPE
+      - 2 cross-attention layers
+      - 50 learnable reference-key vectors, dim=128, reused by the VF estimator
+
+    attn_type='rope' is the paper-faithful default. Use 'relpos' for the legacy
+    rel-pos-window=4 path (closer to the released ONNX, but not what the paper
+    text specifies).
+    """
+    def __init__(self, vocab=163, dim=128, n_style=50, style_dim: int = 128,
+                 attn_type: str = "rope"):
+        super().__init__()
+        self.reference_key = nn.Parameter(torch.randn(1, n_style, dim) * 0.02)
+        self.text_encoder = TextMainEncoder(
+            vocab=vocab,
+            dim=dim,
+            n_convnext=6,
+            inter_conv=512,
+            n_attn=4,
+            n_heads=4,
+            ffn_inter=512,
+            ksz=5,
+            window=4,
+            attn_type=attn_type,
+        )
+        self.speech_prompted_text_encoder = SpeechPromptedTextEncoderPaper(
+            dim=dim, n_heads=2, n_style=n_style, style_dim=style_dim,
+        )
+
+    def forward(self, text_ids, style_ttl, text_mask):
+        x = self.text_encoder(text_ids, text_mask)
+        x = self.speech_prompted_text_encoder(x, style_ttl, text_mask, self.reference_key)
         return x
 
 

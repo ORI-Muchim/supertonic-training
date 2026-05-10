@@ -255,7 +255,10 @@ class StyleEncoder(nn.Module):
 
 
 class StyleEncoderTTL(StyleEncoder):
-    """50 tokens × 256 dim, 2 attention layers (paper-faithful)."""
+    """Shipped-compatible: 50 tokens × 256 dim. Used for fine-tuning shipped TE+VF.
+    Forces output to shipped voice_styles distribution via out_scale=0.0625.
+    For paper-faithful from-scratch training use StyleEncoderTTLPaper instead.
+    """
     def __init__(self, n_refine: int = 2):
         super().__init__(
             ldim=24, chunk_compress_factor=6,
@@ -265,8 +268,28 @@ class StyleEncoderTTL(StyleEncoder):
         )
 
 
+class StyleEncoderTTLPaper(StyleEncoder):
+    """Paper-faithful variant (paper A.2.1 / B.2):
+        - hdim = 128 (paper: "linear layer transforms ... to 128 hidden representations")
+        - value_dim = 128 (paper: "50 learnable vectors with a dimension of 128")
+        - intermediate_dim = 512 (paper-typical 4× ratio)
+        - out_scale = 1.0 (no shipped-distribution kludge)
+    Output: [B, 50, 128]
+    """
+    def __init__(self, n_refine: int = 2):
+        super().__init__(
+            ldim=24, chunk_compress_factor=6,
+            hdim=128, intermediate_dim=512, num_layers=6, ksz=5,
+            n_style=50, value_dim=128, key_dim=128,
+            prototype_dim=128, n_heads=2, n_refine=n_refine,
+            out_scale=1.0,
+        )
+
+
 class StyleEncoderDP(StyleEncoder):
-    """8 tokens × 16 dim. DP config doesn't specify n_refine — we default to 2 as well."""
+    """Shipped-compatible: 8 tokens × 16 dim, out_scale=0.0625 to match shipped voice_styles.
+    For paper-faithful from-scratch DP training use StyleEncoderDPPaper instead.
+    """
     def __init__(self, n_refine: int = 2):
         super().__init__(
             ldim=24, chunk_compress_factor=6,
@@ -274,6 +297,44 @@ class StyleEncoderDP(StyleEncoder):
             n_style=8, value_dim=16, key_dim=0,    # config has key_dim=0 → handled as value_dim
             prototype_dim=64, n_heads=2, n_refine=n_refine,
         )
+
+
+class StyleEncoderDPPaper(StyleEncoder):
+    """Paper-shaped DP reference encoder with shipped-authority output shape.
+
+    The paper text is internally inconsistent here: it says 8 learnable vectors
+    project to 16-dimensional outputs, then says stacking gives a 64-dimensional
+    reference embedding, and later says the estimator first layer is 164-dim.
+    The released ONNX DP uses the unprojected 8x16=128 reference tokens flattened
+    into a 192-dim estimator input (64 text + 128 ref). For from-scratch training
+    we keep that deployed shape but remove the shipped-distribution out_scale.
+
+    Output: [B, 8, 16]
+    """
+    def __init__(self, n_refine: int = 2):
+        super().__init__(
+            ldim=24, chunk_compress_factor=6,
+            hdim=64, intermediate_dim=256, num_layers=4, ksz=5,
+            n_style=8, value_dim=16, key_dim=0,
+            prototype_dim=64, n_heads=2, n_refine=n_refine,
+            out_scale=1.0,
+        )
+
+
+class StyleEncoderDPTextPaper(StyleEncoderDPPaper):
+    """Experimental literal-ish reading of the DP paper text.
+
+    Adds a learned 8*16 -> 64 projection so DurationPredictorPaper can consume a
+    64-dimensional reference embedding. This is intentionally not the default,
+    because the released ONNX does not contain this head.
+    """
+    def __init__(self, n_refine: int = 2):
+        super().__init__(n_refine=n_refine)
+        self.ref_proj = nn.Linear(8 * 16, 64, bias=True)
+
+    def forward(self, latent: torch.Tensor, frame_mask: torch.Tensor | None = None) -> torch.Tensor:
+        tokens = super().forward(latent, frame_mask)
+        return self.ref_proj(tokens.reshape(tokens.shape[0], -1))
 
 
 if __name__ == "__main__":
