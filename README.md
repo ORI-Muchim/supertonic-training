@@ -131,16 +131,25 @@ python -m training.scripts.verify_export_roundtrip
 
 ## Training recipes
 
-### Paper-faithful from-scratch (reference only — paper-scale compute required)
+### Paper-faithful from-scratch (reference only — paper-scale compute & data required)
 
-See `training/README.md` for the 3-stage recipe. Compute estimate on a single
-RTX 3090 (for reference — this is not the practical path):
+See `training/README.md` for the 3-stage recipe. Defaults are now paper-faithful:
+RoPE self-attention (paper A.2.2 / A.3.2), σ_min=1e-8, p_uncond=0.05 joint
+dropout, K_e=4, ref crop 0.2-9s ≤½, grad_accum to match paper effective batch.
+Compute estimate on a single RTX 3090 (KSS 12.86 h):
 
 | Stage | Paper | 3090 estimated |
 |---|---|---|
-| AE-GAN | 1.5 M steps × 4×4090 | batch 16, 300 k steps ≈ 1.5–2 days |
-| TTL (flow matching) | 700 k steps | batch 8, K_e=6 (eff 48), 150 k ≈ 1 day |
-| DP | 3 k steps | < 10 min |
+| AE-GAN | 1.5 M steps @ batch 128 × 4×4090 | batch 16, 1.5 M steps ≈ ~3 days |
+| TTL (flow matching) | 700 k steps @ batch 64 × 4×4090, K_e=4 | batch 32 × grad_accum 2 (eff 64), 700 k ≈ ~3 days |
+| DP | 3 k steps @ batch 128 | ~5 min |
+
+**Important:** even with the recipe matched bit-for-bit, paper-quality
+single-GPU reproduction on KSS-only (12.86 h, 1 speaker) is not achievable.
+The paper's AE was trained on 11,167 h × 14,000 speakers; TTL/DP on 945 h
+× 2,576 speakers. Architecture is paper-faithful here; data scale and
+zero-shot generalization are fundamentally bounded by what fits on a single
+GPU with whatever public Korean corpus you can collect.
 
 ### Fine-tune from shipped weights (practical path)
 
