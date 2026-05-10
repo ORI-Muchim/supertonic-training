@@ -1,212 +1,238 @@
-# Supertonic Training Pipeline (Reverse-Engineered)
+# Supertonic Training Pipeline
 
-Educational reverse engineering of [SupertonicTTS](https://github.com/supertone-inc/supertonic)
-(arXiv [2503.23108](https://arxiv.org/abs/2503.23108)), built from the released ONNX models
-and the paper.
+Reverse-engineered training and inference code for SupertonicTTS
+(paper: arXiv 2503.23108), built from the released ONNX models and the paper.
 
-**This is not an official Supertone repo. No shipped weights are redistributed.**
-All credit for the model goes to the Supertone team.
+This is not an official Supertone repository. No shipped weights are
+redistributed here. The original model, paper, and released assets belong to
+Supertone.
 
----
+## Current Local Status
 
-> ### ⚠️ Heads-up before you clone this for "training a TTS"
->
-> **Running the training code here from scratch will NOT produce a usable TTS
-> model.** The paper's recipe assumes ~100 GPU-days on 4×4090 plus an
-> undisclosed multi-lingual multi-speaker dataset, and the practical details
-> (LR schedule, discriminator warmup, data augmentation, loss-weight schedule,
-> text normalizer, etc.) are not fully specified in the paper.
->
-> At single-GPU scale, GAN dynamics collapse (discriminator wins, gradient
-> explodes) and the fresh AE encoder's output distribution doesn't line up
-> with the shipped vocoder, so end-to-end synthesis from a locally-trained
-> stack sounds garbled.
->
-> **This repo is for:** reverse-engineering study of the Supertonic-2
-> architecture, bit-close forward-graph verification, and a reference
-> implementation of the 3-stage training loss/graph wiring.
->
-> **For actual voice cloning**, use the companion repo
-> [supertonic.embed](https://github.com/kdrkdrkdr/supertonic.embed) — it
-> optimizes `style_ttl`/`style_dp` directly against a reference clip via
-> HuBERT perceptual loss on top of the frozen shipped model, and produces
-> same-voice-level quality in ~15 minutes on a 3090 with zero training.
+As of 2026-05-11, this workspace is focused on a KSS single-speaker
+paper-faithful reproduction, not on shipped-weight voice cloning.
 
----
+Completed:
 
-Two layers of content:
+- Stage 1 AE trained to 1.5M steps on KSS.
+- AE final checkpoint:
+  `training/runs/ae_paper_audit_crop1s_mean/ckpt_step01500000.pt`
+- AE latent cache:
+  `training/runs/ae_paper_audit_crop1s_mean/cache`
 
-1. **`analysis/`** — PyTorch reimplementations of the 4 shipped ONNX modules
-   (`duration_predictor`, `text_encoder`, `vector_estimator`, `vocoder`), verified
-   **bit-close** against the official ONNX (max \|Δ\| ≤ 3e-6 on final waveform).
-   These are the *inference* modules and define the exact forward graph used
-   during training.
+Running:
 
-2. **`training/`** — Full 3-stage training code (AE-GAN → TTL flow-matching → DP)
-   runnable on the KSS Korean single-speaker dataset, plus `export_onnx.py` that
-   rebuilds the shipped 5-file ONNX bundle. Round-trip verification confirms the
-   exported ONNX matches the official release exactly for 3 modules and to
-   FP precision (6.6e-7) for `vector_estimator`.
+- Stage 2 TTL paper-faithful rerun:
+  `training/runs/ttl_paper_rope_b32a2`
+- Settings: `batch_size=32`, `grad_accum=2`, effective batch 64,
+  `attn_type=rope`, `K_e=4`, `sigma_min=1e-8`, `p_uncond=0.05`.
 
-## What works and what doesn't
+Pending:
 
-**Works well (well-tested):**
-- Forward graph is bit-close to shipped ONNX (all 4 modules).
-- `verify_end_to_end.py`, `verify_decoder_weights.py`, `verify_export_roundtrip.py`
-  reproduce quality metrics on any machine with the shipped weights.
-- Fine-tune mode (Stage-2, Stage-3): load shipped `text_encoder.onnx` +
-  `vector_estimator.onnx` + `duration_predictor.onnx` as frozen init, train only
-  the style encoders on ~hours of compute.
+- Stage 3 DP must be retrained after TTL finishes.
+- The old DP checkpoint was removed because it was trained with the old rel-pos
+  path, not the current RoPE paper path.
 
-**Works with caveats:**
-- **From-scratch training** (train_ae.py GAN-mode) runs and reduces loss on KSS,
-  but hitting paper quality requires paper-scale compute (~100 GPU-days for
-  Stage 1 at 4×4090) and data that isn't publicly disclosed. This pipeline
-  demonstrates the forward graph and training loss wiring, not a plug-and-play
-  single-GPU paper-quality reproduction.
-- `train_ae_ft.py` (Stage-1 fine-tune with frozen shipped vocoder decoder) is the
-  pragmatic single-GPU path — it reconstructs KSS via the shipped decoder as the
-  target. Mel loss descends to ~1.0 in 60k steps (~40 min on 3090). Still
-  noticeably below shipped encoder quality because we lack the shipped encoder
-  weights to warm-start from.
+## What This Repo Contains
 
-**Doesn't work out of the box:**
-- **Single-speaker voice cloning via this repo's training code alone.** The
-  distribution gap between our freshly trained AE encoder and the shipped
-  vocoder's expected latent distribution means end-to-end synthesis from an
-  encoder trained here produces muddy output. For voice cloning with the shipped
-  model, the practical approach is direct style-vector optimization against a
-  reference — see the companion
-  [supertonic.embed](https://github.com/kdrkdrkdr/supertonic.embed) repo, which
-  optimizes `style_ttl`/`style_dp` via HuBERT perceptual loss using only shipped
-  weights and produces high-quality single-speaker voices in ~15 minutes on a 3090.
+Two layers are maintained:
+
+1. `analysis/`
+   PyTorch reimplementations of the released ONNX inference modules:
+   `duration_predictor`, `text_encoder`, `vector_estimator`, and `vocoder`.
+   These are used both for verification and as the training-time forward
+   modules where appropriate.
+
+2. `training/`
+   Three-stage training code:
+   AE-GAN -> TTL flow matching -> DP duration prediction.
+
+The current training work is in `training/`. See `training/README.md` for the
+detailed recipe and command list.
+
+## Important Scope
+
+The architecture and training recipe are implemented to match the paper where
+the paper is explicit. This does not mean the local KSS run will match the
+paper's zero-shot quality.
+
+The paper used much larger data:
+
+- AE: 11,167 hours, about 14,000 speakers.
+- TTL/DP: 945 hours, about 2,576 speakers.
+
+The local run uses:
+
+- KSS: 12.86 hours, 1 Korean female speaker.
+- One RTX 3090.
+
+Therefore:
+
+- Single-speaker KSS TTS can be studied and improved here.
+- Zero-shot voice cloning requires multi-speaker AE + TTL + DP training data.
+- KSS-only training cannot teach the model to use reference speaker variation.
+
+## Paper-Faithful Definition Used Here
+
+The current Stage 2 TTL path matches the paper implementation decisions used in
+this repo:
+
+- TextEncoderPaper: dim 128, RoPE self-attention.
+- StyleEncoderTTLPaper: 50 style tokens, value dim 128, output scale 1.0.
+- VectorField: dim 256, latent dim 144, `K_e=4`.
+- TextEncoder and VectorField share the same 50x128 reference key.
+- Flow matching uses `sigma_min=1e-8`.
+- Classifier-free dropout is one joint Bernoulli event, `p_uncond=0.05`.
+- Reference crop is 0.2s to 9s and no more than half the utterance.
+- Flow loss mask excludes the reference crop region.
+- AdamW uses lr `5e-4`, halved every 300k TTL updates.
+- Current single-3090 effective batch is 64 via `batch_size=32` and
+  `grad_accum=2`.
+
+Known paper ambiguities or unavoidable differences:
+
+- The paper does not publish the official training code.
+- RoPE convention is not specified down to implementation details.
+- AE multi-resolution reconstruction reduction is ambiguous; this repo uses
+  mean-scale reduction after audit.
+- DP estimator dimensions in the paper text are internally inconsistent; the
+  default follows the released ONNX/deployed 192-dim estimator shape while using
+  paper RoPE and paper style encoder scaling.
+- Data, speaker count, language distribution, and GPU scale differ heavily from
+  the paper.
 
 ## Setup
 
-```bash
+```powershell
 conda create -n supertonic python=3.11 -y
 conda activate supertonic
 pip install torch==2.5.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
 pip install -r requirements.txt
 ```
 
-Download the official release assets (ONNX + voice_styles + tts.json +
-unicode_indexer.json) from
-[Supertone/supertonic-2](https://huggingface.co/Supertone/supertonic-2)
-and place them at repo root:
+Download the official Supertonic release assets separately and place them under:
 
-```
+```text
 assets/
-├── onnx/
-│   ├── duration_predictor.onnx
-│   ├── text_encoder.onnx
-│   ├── vector_estimator.onnx
-│   ├── vocoder.onnx
-│   ├── tts.json
-│   └── unicode_indexer.json
-└── voice_styles/
-    ├── F1.json … F5.json
-    └── M1.json … M5.json
+  onnx/
+    duration_predictor.onnx
+    text_encoder.onnx
+    vector_estimator.onnx
+    vocoder.onnx
+  tts.json
+  unicode_indexer.json
+  voice_styles/
+    F1.json ... F5.json
+    M1.json ... M5.json
 ```
 
-## Verify the reverse engineering (no training required)
+## Verification
 
-```bash
-# 1) End-to-end: PyTorch vs ONNX on 4 languages, all stages
+```powershell
+# End-to-end PyTorch vs ONNX verification
 python analysis/verify_end_to_end.py
-# → duration  max|Δ|≈1e-6
-#   text_emb  max|Δ|≈1e-5
-#   latent    max|Δ|≈1e-4
-#   wav       max|Δ|≈3e-3  (mean 1e-6 — FP precision)
 
-# 2) AE decoder weights ↔ shipped vocoder.onnx
+# AE decoder vs released vocoder decoder
 python -m training.scripts.verify_decoder_weights
-# → max|Δ|=1.68e-6
 
-# 3) Full export pipeline round-trip
+# Export round-trip checks
 python -m training.scripts.verify_export_roundtrip
-# → vocoder / dp / text_encoder: 0.00e+00 (bit-exact)
-#   vector_estimator:             6.56e-7
 ```
 
-## Training recipes
+## Paper-Faithful KSS Training Path
 
-### Paper-faithful from-scratch (reference only — paper-scale compute & data required)
+Stage 1 AE was already run locally:
 
-See `training/README.md` for the 3-stage recipe. Defaults are now paper-faithful:
-RoPE self-attention (paper A.2.2 / A.3.2), σ_min=1e-8, p_uncond=0.05 joint
-dropout, K_e=4, ref crop 0.2-9s ≤½, grad_accum to match paper effective batch.
-Compute estimate on a single RTX 3090 (KSS 12.86 h):
-
-| Stage | Paper | 3090 estimated |
-|---|---|---|
-| AE-GAN | 1.5 M steps @ batch 128 × 4×4090 | batch 16, 1.5 M steps ≈ ~3 days |
-| TTL (flow matching) | 700 k steps @ batch 64 × 4×4090, K_e=4 | batch 32 × grad_accum 2 (eff 64), 700 k ≈ ~3 days |
-| DP | 3 k steps @ batch 128 | ~5 min |
-
-**Important:** even with the recipe matched bit-for-bit, paper-quality
-single-GPU reproduction on KSS-only (12.86 h, 1 speaker) is not achievable.
-The paper's AE was trained on 11,167 h × 14,000 speakers; TTL/DP on 945 h
-× 2,576 speakers. Architecture is paper-faithful here; data scale and
-zero-shot generalization are fundamentally bounded by what fits on a single
-GPU with whatever public Korean corpus you can collect.
-
-### Fine-tune from shipped weights (practical path)
-
-```bash
-# Stage 1: train AEEncoder with frozen shipped vocoder decoder (~40 min at batch 16)
-python -m training.scripts.train_ae_ft --steps 60000 --out_dir training/runs/ae_ft
-
-# Cache AE latents (~1 min)
-python -m training.scripts.cache_latents \
-    --ckpt training/runs/ae_ft/ckpt_step00060000.pt \
-    --out_dir training/runs/ae_ft/cache --fp16
-
-# Stage 2: StyleEncoderTTL only, shipped TE+VF frozen (~40 min)
-python -m training.scripts.train_ttl --cache_dir training/runs/ae_ft/cache \
-    --steps 25000 --out_dir training/runs/ttl_ft
-
-# Stage 3: StyleEncoderDP only, shipped DP frozen (~1 min)
-python -m training.scripts.train_dp --cache_dir training/runs/ae_ft/cache \
-    --steps 5000 --out_dir training/runs/dp_ft
-
-# Extract a voice style JSON from any reference wav
-python -m training.scripts.extract_voice_style \
-    --wav <reference.wav> \
-    --ae_ckpt  training/runs/ae_ft/ckpt_step00060000.pt \
-    --stats    training/runs/ae_ft/cache/stats.pt \
-    --ttl_ckpt training/runs/ttl_ft/ckpt_step00025000.pt \
-    --dp_ckpt  training/runs/dp_ft/ckpt_step00005000.pt \
-    --out assets/voice_styles/MyVoice.json --name MyVoice
+```powershell
+python -m training.scripts.train_ae `
+  --batch_size 16 `
+  --steps 1500000 `
+  --out_dir training/runs/ae_paper_audit_crop1s_mean
 ```
 
-Fine-tune uses `load_*_weights` (from `analysis/torch_*.py`) to load the shipped
-ONNX weights directly into the PyTorch modules. This gives you paper-quality
-text/flow/vocoder for free; only the style encoders (≈1.5M + 0.15M params) are
-trained. Total cost: < 2 hours on a 3090 for KSS single-speaker.
+Cache AE latents:
 
-Practical caveat: the from-scratch AEEncoder still doesn't match the shipped
-encoder's output distribution well enough for clean end-to-end synthesis from
-the fine-tuned stack alone. For actual high-quality voice cloning, use
-`supertonic.embed` (link above), which sidesteps encoder training entirely.
+```powershell
+python -m training.scripts.cache_latents `
+  --ckpt training/runs/ae_paper_audit_crop1s_mean/ckpt_step01500000.pt `
+  --out_dir training/runs/ae_paper_audit_crop1s_mean/cache
+```
 
-## License & credits
+Current Stage 2 TTL run:
 
-Model architecture, weights, and the original paper are property of
-Supertone Inc. (MIT-licensed code, OpenRAIL-M licensed weights).
+```powershell
+python -m training.scripts.train_ttl `
+  --cache_dir training/runs/ae_paper_audit_crop1s_mean/cache `
+  --batch_size 32 `
+  --grad_accum 2 `
+  --attn_type rope `
+  --num_workers 0 `
+  --out_dir training/runs/ttl_paper_rope_b32a2
+```
 
-- Paper: arXiv [2503.23108](https://arxiv.org/abs/2503.23108)
-- Official code: [supertone-inc/supertonic](https://github.com/supertone-inc/supertonic)
-- Weights: [Supertone/supertonic-2](https://huggingface.co/Supertone/supertonic-2)
-- Related supporting papers:
-  arXiv [2509.11084](https://arxiv.org/abs/2509.11084) (LARoPE),
-  arXiv [2509.19091](https://arxiv.org/abs/2509.19091) (SPFM)
+After TTL completes, retrain DP with the current paper/RoPE code:
 
-The code in this repo is distributed under MIT (see `LICENSE`, preserved from
-upstream). The additions here are reverse-engineering notes and training
-scripts, intended for research and educational use.
+```powershell
+python -m training.scripts.train_dp `
+  --cache_dir training/runs/ae_paper_audit_crop1s_mean/cache `
+  --num_workers 0 `
+  --out_dir training/runs/dp_paper_rope_3k
+```
 
-`py/helper.py` is a bundled copy of
-[supertone-inc/supertonic/py/helper.py](https://github.com/supertone-inc/supertonic)
-(MIT) — kept here unchanged so the verification scripts run without cloning
-the full upstream repo.
+## Monitoring The Current Run
+
+```powershell
+Get-Content training/runs/ttl_paper_rope_b32a2.log -Tail 10
+
+Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
+  Where-Object { $_.CommandLine -like '*ttl_paper_rope_b32a2*' } |
+  Select-Object ProcessId, CommandLine
+
+nvidia-smi
+```
+
+Expected healthy TTL signs:
+
+- Loss should trend downward over tens of thousands of steps.
+- Grad norm should stay finite and small.
+- GPU memory around 14GB to 18GB on the current `batch=32, accum=2` run.
+- First checkpoint is saved at 50k updates.
+
+## Inference During Development
+
+For paper-faithful 128-dim TTL checkpoints, use:
+
+```powershell
+python -m training.scripts.synth_ttl_paper `
+  --ae_ckpt training/runs/ae_paper_audit_crop1s_mean/ckpt_step01500000.pt `
+  --cache_dir training/runs/ae_paper_audit_crop1s_mean/cache `
+  --ttl_ckpt training/runs/ttl_paper_rope_b32a2/ckpt_step00050000.pt `
+  --text "안녕하세요 슈퍼토닉 학습 테스트입니다." `
+  --cfg_scale 3.0 `
+  --out out_ttl_test.wav
+```
+
+Use `--dp_ckpt` after the DP has been retrained.
+
+## Notes On Fine-Tuning Shipped Weights
+
+Older README text described a shipped-weight fine-tune path. That path is still
+useful for experiments, but it is not the current paper-faithful KSS
+from-scratch path.
+
+The current priority is:
+
+1. Finish TTL with RoPE + effective batch 64.
+2. Retrain DP with RoPE.
+3. Evaluate same-text and new-text pronunciation.
+4. Decide whether larger multi-speaker data is needed.
+
+## License And Credits
+
+Original architecture, released model assets, and paper are by Supertone.
+This repository contains reverse-engineering notes and training scripts for
+research and educational use.
+
+- Paper: arXiv 2503.23108
+- Official code: https://github.com/supertone-inc/supertonic
+- Released weights: https://huggingface.co/Supertone/supertonic-2
