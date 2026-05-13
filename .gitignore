@@ -52,3 +52,6 @@ supertonic_paper.txt
 # Local synth/diagnostic outputs (regeneratable artifacts)
 out_*.wav
 mel_compare.png
+
+# Exception: github.io demo samples
+!docs/samples/*.wav

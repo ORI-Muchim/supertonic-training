@@ -7,6 +7,10 @@ This is not an official Supertone repository. No shipped weights are
 redistributed here. The original model, paper, and released assets belong to
 Supertone.
 
+🎧 **Audio samples + A/B comparison vs released model:**
+[ori-muchim.github.io/supertonic-training](https://ori-muchim.github.io/supertonic-training/)
+(after enabling GitHub Pages from `/docs`).
+
 ## Current Local Status
 
 As of 2026-05-13, this workspace has completed a KSS single-speaker

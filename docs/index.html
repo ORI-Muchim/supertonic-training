@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supertonic Training — Paper-Faithful Reproduction</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --bg2: #161922;
+    --fg: #e6e8ef;
+    --muted: #8a93a6;
+    --accent: #6db4ff;
+    --border: #262a36;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap {
+    max-width: 920px; margin: 0 auto; padding: 48px 24px 96px;
+  }
+  header { border-bottom: 1px solid var(--border); padding-bottom: 24px; margin-bottom: 32px; }
+  h1 { margin: 0 0 8px; font-size: 28px; }
+  h2 { margin: 48px 0 16px; font-size: 22px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  h3 { margin: 24px 0 8px; font-size: 16px; color: var(--accent); }
+  .sub { color: var(--muted); font-size: 14px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, kbd, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+  code { background: var(--bg2); padding: 2px 6px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th, td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  audio { width: 100%; height: 32px; margin-top: 4px; }
+  .sample {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px; margin-bottom: 12px;
+  }
+  .sample .text { font-size: 15px; margin-bottom: 8px; }
+  .sample .meta { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+  .compare > div {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px;
+  }
+  .compare .label { color: var(--accent); font-size: 12px; font-weight: 500; margin-bottom: 8px; }
+  .note {
+    border-left: 3px solid var(--accent); padding: 8px 16px;
+    background: var(--bg2); color: var(--muted); font-size: 14px; margin: 16px 0;
+  }
+  ul { padding-left: 20px; }
+  li { margin: 4px 0; }
+  footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Supertonic Training — Paper-Faithful Reproduction</h1>
+  <div class="sub">
+    Single-GPU reverse-engineered training pipeline for
+    <a href="https://arxiv.org/abs/2503.23108" target="_blank">SupertonicTTS</a>,
+    trained on KSS (Korean, single speaker, 12.86 h).
+    <a href="https://github.com/ORI-Muchim/supertonic-training" target="_blank">GitHub repo</a>.
+  </div>
+</header>
+
+<section>
+  <h2>Audio Samples — Paper-Faithful Pipeline (Korean, single-speaker)</h2>
+  <div class="sub">
+    Synthesized with our locally trained AE + TTL + DP. All settings paper-spec
+    (RoPE, K_e=4, σ_min=10⁻⁸, p_uncond=0.05 joint, ref crop 0.2–9 s ≤ ½ duration,
+    LR 5×10⁻⁴ halve every 300k for TTL).
+    Inference: <code>cfg=1.0, steps=16</code>, DP-predicted duration, ref speaker = KSS idx 0.
+  </div>
+
+  <div class="sample">
+    <div class="text">"안녕하세요 반갑습니다"</div>
+    <audio controls preload="none" src="samples/out_test_01_greeting.wav"></audio>
+    <div class="meta">2.12 s · peak 0.71 · rms 0.10 · clip 0%</div>
+  </div>
+
+  <div class="sample">
+    <div class="text">"오늘 날씨가 정말 좋네요"</div>
+    <audio controls preload="none" src="samples/out_test_02_weather.wav"></audio>
+    <div class="meta">2.50 s · peak 0.78 · rms 0.09 · clip 0%</div>
+  </div>
+
+  <div class="sample">
+    <div class="text">"어제 저녁에 친구를 만나서 영화를 보러 갔어요"</div>
+    <audio controls preload="none" src="samples/out_test_03_narrative.wav"></audio>
+    <div class="meta">3.98 s · peak 0.63 · rms 0.09 · clip 0%</div>
+  </div>
+
+  <div class="sample">
+    <div class="text">"인공지능 음성합성 기술이 빠르게 발전하고 있습니다"</div>
+    <audio controls preload="none" src="samples/out_test_04_tech.wav"></audio>
+    <div class="meta">4.67 s · peak 0.62 · rms 0.08 · clip 0% · out-of-domain technical text</div>
+  </div>
+
+  <div class="sample">
+    <div class="text">"커피 한 잔 마시면서 책을 읽고 싶어요"</div>
+    <audio controls preload="none" src="samples/out_test_05_casual.wav"></audio>
+    <div class="meta">3.49 s · peak 0.65 · rms 0.09 · clip 0%</div>
+  </div>
+
+  <div class="sample">
+    <div class="text">"감사합니다"</div>
+    <audio controls preload="none" src="samples/out_test_06_short.wav"></audio>
+    <div class="meta">1.45 s · peak 0.65 · rms 0.09 · clip 0%</div>
+  </div>
+</section>
+
+<section>
+  <h2>A/B Comparison vs Released Supertonic Model</h2>
+  <div class="sub">
+    Same texts synthesized via the released ONNX assets
+    (<code>assets/onnx/*.onnx</code> + <code>voice_styles/F1.json</code>, total_step=5).
+    The released model has much cleaner timbre — it was trained on ~11 167 h × ~14 000 speakers
+    (paper Sec 4.1). Korean pronunciation is noticeably better on the locally trained model
+    because the released TTL/DP was trained on English-only datasets (LJSpeech, VCTK, Hi-Fi TTS, LibriTTS).
+  </div>
+
+  <h3>"안녕하세요 반갑습니다"</h3>
+  <div class="compare">
+    <div><div class="label">OURS (KSS-trained, paper-faithful)</div>
+      <audio controls preload="none" src="samples/out_test_01_greeting.wav"></audio></div>
+    <div><div class="label">RELEASED (multi-speaker, F1 voice)</div>
+      <audio controls preload="none" src="samples/out_shipped_01_greeting.wav"></audio></div>
+  </div>
+
+  <h3>"오늘 날씨가 정말 좋네요"</h3>
+  <div class="compare">
+    <div><div class="label">OURS</div>
+      <audio controls preload="none" src="samples/out_test_02_weather.wav"></audio></div>
+    <div><div class="label">RELEASED</div>
+      <audio controls preload="none" src="samples/out_shipped_02_weather.wav"></audio></div>
+  </div>
+
+  <h3>"어제 저녁에 친구를 만나서 영화를 보러 갔어요"</h3>
+  <div class="compare">
+    <div><div class="label">OURS</div>
+      <audio controls preload="none" src="samples/out_test_03_narrative.wav"></audio></div>
+    <div><div class="label">RELEASED</div>
+      <audio controls preload="none" src="samples/out_shipped_03_narrative.wav"></audio></div>
+  </div>
+
+  <h3>"인공지능 음성합성 기술이 빠르게 발전하고 있습니다"</h3>
+  <div class="compare">
+    <div><div class="label">OURS</div>
+      <audio controls preload="none" src="samples/out_test_04_tech.wav"></audio></div>
+    <div><div class="label">RELEASED</div>
+      <audio controls preload="none" src="samples/out_shipped_04_tech.wav"></audio></div>
+  </div>
+
+  <h3>"커피 한 잔 마시면서 책을 읽고 싶어요"</h3>
+  <div class="compare">
+    <div><div class="label">OURS</div>
+      <audio controls preload="none" src="samples/out_test_05_casual.wav"></audio></div>
+    <div><div class="label">RELEASED</div>
+      <audio controls preload="none" src="samples/out_shipped_05_casual.wav"></audio></div>
+  </div>
+
+  <h3>"감사합니다"</h3>
+  <div class="compare">
+    <div><div class="label">OURS</div>
+      <audio controls preload="none" src="samples/out_test_06_short.wav"></audio></div>
+    <div><div class="label">RELEASED</div>
+      <audio controls preload="none" src="samples/out_shipped_06_short.wav"></audio></div>
+  </div>
+</section>
+
+<section>
+  <h2>Pipeline</h2>
+
+  <table>
+    <thead><tr><th>Stage</th><th>Module</th><th>Trained</th><th>Loss</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>AE-GAN (228-mel → 24-dim latent → wav)</td>
+          <td>1.5 M steps · batch 16</td>
+          <td>45·L<sub>recon</sub> + L<sub>adv</sub> + 0.1·L<sub>fm</sub>
+              <br>MPD periods 2/3/5/7/11 · MRD FFT 512/1024/2048</td></tr>
+      <tr><td>2</td><td>TTL flow-matching (text → 144-dim z<sub>1</sub>)</td>
+          <td>700 k updates · batch 32 × grad-accum 2 (eff 64)</td>
+          <td>L<sub>CFM</sub> = E[ m ⊙ ‖v − (z<sub>1</sub> − (1−σ<sub>min</sub>)z<sub>0</sub>)‖<sub>1</sub> ]
+              <br>K<sub>e</sub>=4 · σ<sub>min</sub>=10⁻⁸ · p<sub>uncond</sub>=0.05 joint</td></tr>
+      <tr><td>3</td><td>DP (text + ref → total duration scalar)</td>
+          <td>3 k steps · batch 128</td>
+          <td>L1(pred dur, GT dur) · 5–95 % ref crop</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Key fix that unlocked Korean pronunciation</h3>
+  <div class="note">
+    The initial paper-spec port had <code>LARoPETextCrossAttention.theta</code> registered
+    as a zero buffer that was overwritten only by the ONNX-weight loader.
+    From-scratch training silently ran with rotary-frequency = 0, so the text
+    cross-attention had no positional information and pronunciation collapsed to babble.
+    Initialising <code>theta = 10 × 10000^(−j / half)</code> per the paper formula and
+    retraining produced intelligible Korean speech.
+  </div>
+
+  <h3>What's still bounded by data scale</h3>
+  <ul>
+    <li><strong>Audio quality / timbre clarity.</strong> Our discriminator only saw KSS (12.86 h × 1 speaker), so it can't push the generator past KSS-specific natural-speech statistics. The released model's AE was trained on ~11 167 h × ~14 000 speakers.</li>
+    <li><strong>Zero-shot voice cloning.</strong> The architecture supports it (reference-encoder → style tokens → cross-attention), but the local AE/TTL/DP never saw speaker variation. Reaching zero-shot quality requires multi-speaker training data.</li>
+  </ul>
+</section>
+
+<footer>
+  Model architecture, paper, and released assets © Supertone.
+  This site demonstrates a reverse-engineered training pipeline for research
+  and educational use. No shipped weights are redistributed.
+</footer>
+
+</div>
+</body>
+</html>
