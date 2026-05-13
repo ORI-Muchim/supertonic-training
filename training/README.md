@@ -1,7 +1,7 @@
 # Supertonic Training Code
 
-This directory contains the current three-stage training implementation used in
-this workspace:
+This directory contains the three-stage training implementation used in this
+workspace:
 
 ```text
 Stage 1: AE-GAN speech autoencoder
@@ -9,9 +9,9 @@ Stage 2: TTL text-to-latent flow matching
 Stage 3: DP utterance-level duration predictor
 ```
 
-The active goal is paper-faithful training on KSS for pronunciation and
-alignment diagnostics. This is not expected to reproduce paper zero-shot quality
-without paper-scale multi-speaker data.
+The KSS single-speaker paper-faithful run is complete. The final TTL+DP stack
+produces intelligible Korean pronunciation on manual test sentences. This does
+not imply zero-shot voice cloning; zero-shot requires multi-speaker data.
 
 ## Current Local Artifacts
 
@@ -23,13 +23,13 @@ training/runs/ae_paper_audit_crop1s_mean/
   cache/
 
 training/runs/ttl_paper_rope_b32a2/
+  ckpt_step00700000.pt
   config.json
-  ckpt_step*.pt       # appears every 50k updates
-  tb/
-```
 
-The old DP run was intentionally deleted because its checkpoint used the old
-rel-pos path. Retrain DP after TTL finishes.
+training/runs/dp_paper_rope_3k/
+  ckpt_step00003000.pt
+  config.json
+```
 
 ## Directory Map
 
@@ -66,7 +66,7 @@ training/
 
 ## Stage 1: AE
 
-Local completed run:
+Completed checkpoint:
 
 ```text
 training/runs/ae_paper_audit_crop1s_mean/ckpt_step01500000.pt
@@ -99,8 +99,8 @@ Notes:
   lambda value is not silently multiplied by the number of resolutions.
 - AE-only reconstruction is much closer to real mel than end-to-end TTL output:
   measured log-mel MAE was about 0.51 for real vs AE-only, versus about 3.27
-  for real vs E2E TTL. Current pronunciation/quality bottleneck is therefore
-  mainly TTL, not AE.
+  for real vs the old broken E2E TTL path. The major pronunciation bottleneck
+  was TTL/VF alignment, not AE reconstruction.
 
 Re-run command:
 
@@ -121,10 +121,10 @@ python -m training.scripts.cache_latents `
 
 ## Stage 2: TTL
 
-Current active run:
+Completed checkpoint:
 
 ```text
-training/runs/ttl_paper_rope_b32a2
+training/runs/ttl_paper_rope_b32a2/ckpt_step00700000.pt
 ```
 
 Actual config:
@@ -163,6 +163,30 @@ Paper-faithful TTL choices:
 - Optimizer updates count as `steps`; microbatch accumulation does not change
   the paper iteration count.
 
+Why `batch=32, grad_accum=2`:
+
+- Effective batch is 64, matching the paper interpretation used here.
+- `batch=64, accum=1` was benchmarked and was slower because variable-length
+  padding made the microbatch too expensive.
+- `batch=32, accum=2` kept GPU utilization high and ran around 2.5 updates/s on
+  the local RTX 3090.
+
+Final status:
+
+- Finished 700k updates.
+- Final logged loss: about 0.47.
+- Final lr: `1.25e-4` after the scheduled 300k and 600k halvings.
+- Runtime: about 4461 minutes.
+
+Critical implementation fix:
+
+- `LARoPETextCrossAttention.theta` must be initialized for from-scratch
+  training using the ONNX/deployed formula:
+  `theta = 10 * 10000^(-j / half)`.
+- Earlier from-scratch runs left this buffer effectively at zero. That removed
+  useful text-position information from vector-field cross-attention and caused
+  babbling-like pronunciation.
+
 Launch command:
 
 ```powershell
@@ -175,28 +199,31 @@ python -m training.scripts.train_ttl `
   --out_dir training/runs/ttl_paper_rope_b32a2
 ```
 
-Why `batch=32, grad_accum=2`:
-
-- Effective batch is 64, matching the paper interpretation used here.
-- `batch=64, accum=1` was benchmarked and was slower because variable-length
-  padding made the microbatch too expensive.
-- `batch=32, accum=2` keeps GPU utilization high and runs around 2.5 updates/s
-  on the local RTX 3090.
-
-Monitor:
-
-```powershell
-Get-Content training/runs/ttl_paper_rope_b32a2.log -Tail 10
-nvidia-smi
-```
-
 ## Stage 3: DP
 
-DP should be trained after TTL completes.
+Completed checkpoint:
+
+```text
+training/runs/dp_paper_rope_3k/ckpt_step00003000.pt
+```
+
+Actual config:
+
+```json
+{
+  "paper_faithful": true,
+  "paper_text_estimator": false,
+  "fine_tune": false,
+  "attn_type": "rope",
+  "lr": 0.0005,
+  "grad_clip": null,
+  "steps": 3000,
+  "batch_size": 128
+}
+```
 
 Current code defaults:
 
-- `paper_faithful=true`
 - `StyleEncoderDPPaper(out_scale=1.0)`
 - `DurationPredictor(attn_type="rope")`
 - Batch size 128
@@ -205,14 +232,12 @@ Current code defaults:
 - No grad clipping by default
 - Reference crop uses a 5 percent to 95 percent random length crop.
 
-Launch after TTL:
+Final status:
 
-```powershell
-python -m training.scripts.train_dp `
-  --cache_dir training/runs/ae_paper_audit_crop1s_mean/cache `
-  --num_workers 0 `
-  --out_dir training/runs/dp_paper_rope_3k
-```
+- Finished 3k updates.
+- Final logged duration L1: about 0.19s.
+- Final relative duration error: about 5.6 percent.
+- Runtime: about 5 minutes.
 
 DP ambiguity:
 
@@ -223,23 +248,37 @@ DP ambiguity:
   shape: 64 text + 8*16 reference = 192.
 - `--paper_text_estimator` exists only for experiments and is not the default.
 
-## Mid-Training Synthesis
+Launch command:
 
-Use `synth_ttl_paper.py` for current paper 128-dim TTL checkpoints:
+```powershell
+python -m training.scripts.train_dp `
+  --cache_dir training/runs/ae_paper_audit_crop1s_mean/cache `
+  --num_workers 0 `
+  --out_dir training/runs/dp_paper_rope_3k
+```
+
+## Final E2E Synthesis
+
+Use `synth_ttl_paper.py` with the final AE, TTL, and DP checkpoints:
 
 ```powershell
 python -m training.scripts.synth_ttl_paper `
   --ae_ckpt training/runs/ae_paper_audit_crop1s_mean/ckpt_step01500000.pt `
   --cache_dir training/runs/ae_paper_audit_crop1s_mean/cache `
-  --ttl_ckpt training/runs/ttl_paper_rope_b32a2/ckpt_step00050000.pt `
-  --text "안녕하세요 슈퍼토닉 학습 테스트입니다." `
-  --cfg_scale 3.0 `
-  --steps 5 `
-  --out out_ttl_50k.wav
+  --ttl_ckpt training/runs/ttl_paper_rope_b32a2/ckpt_step00700000.pt `
+  --dp_ckpt training/runs/dp_paper_rope_3k/ckpt_step00003000.pt `
+  --text "<korean text>" `
+  --cfg_scale 1.0 `
+  --steps 16 `
+  --out out_ttl_final.wav
 ```
 
-After DP exists, pass `--dp_ckpt` to use predicted duration. Before DP exists,
-use explicit or heuristic duration.
+Manual final test:
+
+- Six Korean sentences were synthesized with `cfg_scale=1.0`, `steps=16`, and
+  DP-predicted duration.
+- All six produced valid waveform signals with 0 percent digital clipping.
+- Manual listening confirmed pronunciation is now correct.
 
 ## Diagnostics
 
@@ -261,8 +300,8 @@ Expected interpretation:
 
 - If AE-only sounds clean but TTL E2E sounds muddy, the bottleneck is TTL.
 - If AE-only is already bad, the bottleneck is AE.
-- Current measurements indicated TTL is the main bottleneck: real vs AE-only
-  log-mel MAE was about 0.51, while real vs E2E TTL was about 3.27.
+- The old broken E2E path had real-vs-E2E log-mel MAE about 3.27, while
+  real-vs-AE-only was about 0.51.
 
 ## Cleanup Policy
 
@@ -274,11 +313,12 @@ Safe to delete:
 - old TTL runs superseded by `ttl_paper_rope_b32a2`
 - AE intermediate checkpoints if the final 1.5M checkpoint and cache are kept
 
-Do not delete while training:
+Do not delete:
 
-- `training/runs/ttl_paper_rope_b32a2`
 - `training/runs/ae_paper_audit_crop1s_mean/cache`
 - `training/runs/ae_paper_audit_crop1s_mean/ckpt_step01500000.pt`
+- `training/runs/ttl_paper_rope_b32a2/ckpt_step00700000.pt`
+- `training/runs/dp_paper_rope_3k/ckpt_step00003000.pt`
 
 ## Zero-Shot Reality Check
 

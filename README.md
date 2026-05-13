@@ -9,29 +9,37 @@ Supertone.
 
 ## Current Local Status
 
-As of 2026-05-11, this workspace is focused on a KSS single-speaker
-paper-faithful reproduction, not on shipped-weight voice cloning.
+As of 2026-05-13, this workspace has completed a KSS single-speaker
+paper-faithful reproduction run.
 
-Completed:
+Completed artifacts:
 
-- Stage 1 AE trained to 1.5M steps on KSS.
-- AE final checkpoint:
-  `training/runs/ae_paper_audit_crop1s_mean/ckpt_step01500000.pt`
-- AE latent cache:
-  `training/runs/ae_paper_audit_crop1s_mean/cache`
+```text
+AE : training/runs/ae_paper_audit_crop1s_mean/ckpt_step01500000.pt
+TTL: training/runs/ttl_paper_rope_b32a2/ckpt_step00700000.pt
+DP : training/runs/dp_paper_rope_3k/ckpt_step00003000.pt
+```
 
-Running:
+The final stack produces intelligible Korean single-speaker TTS. Six manual
+test sentences were synthesized with `cfg_scale=1.0`, `steps=16`, and
+DP-predicted duration; all produced valid unclipped waveforms and were judged
+to have correct pronunciation.
 
-- Stage 2 TTL paper-faithful rerun:
-  `training/runs/ttl_paper_rope_b32a2`
-- Settings: `batch_size=32`, `grad_accum=2`, effective batch 64,
-  `attn_type=rope`, `K_e=4`, `sigma_min=1e-8`, `p_uncond=0.05`.
+## Key Result
 
-Pending:
+The earlier "babbling" output was not primarily an AE ceiling. It was a
+text-to-latent alignment failure caused by Stage 2 implementation drift.
 
-- Stage 3 DP must be retrained after TTL finishes.
-- The old DP checkpoint was removed because it was trained with the old rel-pos
-  path, not the current RoPE paper path.
+Most important fix:
+
+- `LARoPETextCrossAttention.theta` must be initialized for from-scratch
+  training using the same formula as the released ONNX graph:
+  `theta = 10 * 10000^(-j / half)`.
+
+Leaving this buffer effectively zero removed useful text-position information
+from vector-field cross-attention and caused severe pronunciation failure.
+After the theta fix, RoPE self-attention, and effective batch 64, the TTL+DP
+stack learned usable Korean pronunciation.
 
 ## What This Repo Contains
 
@@ -47,14 +55,14 @@ Two layers are maintained:
    Three-stage training code:
    AE-GAN -> TTL flow matching -> DP duration prediction.
 
-The current training work is in `training/`. See `training/README.md` for the
-detailed recipe and command list.
+See `training/README.md` for the detailed stage-by-stage recipe and local run
+notes.
 
-## Important Scope
+## Scope And Limits
 
 The architecture and training recipe are implemented to match the paper where
-the paper is explicit. This does not mean the local KSS run will match the
-paper's zero-shot quality.
+the paper is explicit. This does not mean the local KSS run matches the paper's
+zero-shot setting.
 
 The paper used much larger data:
 
@@ -68,8 +76,8 @@ The local run uses:
 
 Therefore:
 
-- Single-speaker KSS TTS can be studied and improved here.
-- Zero-shot voice cloning requires multi-speaker AE + TTL + DP training data.
+- KSS single-speaker TTS is now working.
+- Zero-shot voice cloning still requires multi-speaker AE + TTL + DP training.
 - KSS-only training cannot teach the model to use reference speaker variation.
 
 ## Paper-Faithful Definition Used Here
@@ -86,8 +94,7 @@ this repo:
 - Reference crop is 0.2s to 9s and no more than half the utterance.
 - Flow loss mask excludes the reference crop region.
 - AdamW uses lr `5e-4`, halved every 300k TTL updates.
-- Current single-3090 effective batch is 64 via `batch_size=32` and
-  `grad_accum=2`.
+- Single-3090 effective batch is 64 via `batch_size=32` and `grad_accum=2`.
 
 Known paper ambiguities or unavoidable differences:
 
@@ -139,9 +146,9 @@ python -m training.scripts.verify_decoder_weights
 python -m training.scripts.verify_export_roundtrip
 ```
 
-## Paper-Faithful KSS Training Path
+## Reproducing The Completed KSS Run
 
-Stage 1 AE was already run locally:
+Stage 1 AE:
 
 ```powershell
 python -m training.scripts.train_ae `
@@ -158,7 +165,7 @@ python -m training.scripts.cache_latents `
   --out_dir training/runs/ae_paper_audit_crop1s_mean/cache
 ```
 
-Current Stage 2 TTL run:
+Stage 2 TTL:
 
 ```powershell
 python -m training.scripts.train_ttl `
@@ -170,7 +177,7 @@ python -m training.scripts.train_ttl `
   --out_dir training/runs/ttl_paper_rope_b32a2
 ```
 
-After TTL completes, retrain DP with the current paper/RoPE code:
+Stage 3 DP:
 
 ```powershell
 python -m training.scripts.train_dp `
@@ -179,53 +186,32 @@ python -m training.scripts.train_dp `
   --out_dir training/runs/dp_paper_rope_3k
 ```
 
-## Monitoring The Current Run
-
-```powershell
-Get-Content training/runs/ttl_paper_rope_b32a2.log -Tail 10
-
-Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
-  Where-Object { $_.CommandLine -like '*ttl_paper_rope_b32a2*' } |
-  Select-Object ProcessId, CommandLine
-
-nvidia-smi
-```
-
-Expected healthy TTL signs:
-
-- Loss should trend downward over tens of thousands of steps.
-- Grad norm should stay finite and small.
-- GPU memory around 14GB to 18GB on the current `batch=32, accum=2` run.
-- First checkpoint is saved at 50k updates.
-
-## Inference During Development
-
-For paper-faithful 128-dim TTL checkpoints, use:
+## Final Synthesis
 
 ```powershell
 python -m training.scripts.synth_ttl_paper `
   --ae_ckpt training/runs/ae_paper_audit_crop1s_mean/ckpt_step01500000.pt `
   --cache_dir training/runs/ae_paper_audit_crop1s_mean/cache `
-  --ttl_ckpt training/runs/ttl_paper_rope_b32a2/ckpt_step00050000.pt `
-  --text "안녕하세요 슈퍼토닉 학습 테스트입니다." `
-  --cfg_scale 3.0 `
-  --out out_ttl_test.wav
+  --ttl_ckpt training/runs/ttl_paper_rope_b32a2/ckpt_step00700000.pt `
+  --dp_ckpt training/runs/dp_paper_rope_3k/ckpt_step00003000.pt `
+  --text "<korean text>" `
+  --cfg_scale 1.0 `
+  --steps 16 `
+  --out out_ttl_final.wav
 ```
-
-Use `--dp_ckpt` after the DP has been retrained.
 
 ## Notes On Fine-Tuning Shipped Weights
 
-Older README text described a shipped-weight fine-tune path. That path is still
-useful for experiments, but it is not the current paper-faithful KSS
+Older README versions described a shipped-weight fine-tune path. That path is
+still useful for experiments, but it is not the current paper-faithful KSS
 from-scratch path.
 
-The current priority is:
+The current priorities are:
 
-1. Finish TTL with RoPE + effective batch 64.
-2. Retrain DP with RoPE.
-3. Evaluate same-text and new-text pronunciation.
-4. Decide whether larger multi-speaker data is needed.
+1. Keep the successful KSS single-speaker run reproducible.
+2. Preserve the LARoPE theta initialization fix.
+3. Decide whether the next milestone is audio-quality improvement,
+   multi-speaker data, or Supertonic 3 asset support.
 
 ## License And Credits
 
