@@ -86,10 +86,31 @@ Therefore:
 
 ## Paper-Faithful Definition Used Here
 
-The current Stage 2 TTL path matches the paper implementation decisions used in
-this repo:
+**Important: this targets the 44 M baseline described in the paper text, not the
+65–66 M variant shipped on Hugging Face.** Both share the same architecture; the
+shipped release uses 2× wider hidden dimensions for the text-to-latent module.
 
-- TextEncoderPaper: dim 128, RoPE self-attention.
+| Module | Paper text (this repo, default) | Shipped Hugging Face ONNX |
+|---|---|---|
+| TextEncoder dim | 128 | 256 (4× params) |
+| VectorField dim | 256 | 512 (4× params) |
+| **TTL (TE+SE+VF) params** | **~19 M** | **~40 M** |
+| Vocoder (= AE decoder) | 25.3 M | 25.3 M |
+| DP | 0.5 M | 0.3 M |
+| **Total inference params** | **~45 M** (paper Table 5: 44 M) | **~66 M** |
+
+The paper text describes the 44 M baseline (Sec A.2.1 / A.2.2 / A.2.3 give the
+exact `dim=128` / `dim=256` numbers). The released ONNX uses wider dims that the
+paper does not enumerate. Both code paths are supported:
+
+- `train_ttl.py` defaults → **paper 44 M** baseline (`TextEncoderPaper`,
+  `StyleEncoderTTLPaper`, `VectorField(dim=256, ...)`).
+- `train_ttl.py --shipped_dim` or `--fine_tune` → shipped 66 M variant
+  (`TextEncoder` dim 256, `VectorField` default dim 512).
+
+The current Stage 2 TTL training matches the paper baseline:
+
+- TextEncoderPaper: dim 128, RoPE self-attention (paper A.2.2 line 1075).
 - StyleEncoderTTLPaper: 50 style tokens, value dim 128, output scale 1.0.
 - VectorField: dim 256, latent dim 144, `K_e=4`.
 - TextEncoder and VectorField share the same 50x128 reference key.
@@ -99,6 +120,8 @@ this repo:
 - Flow loss mask excludes the reference crop region.
 - AdamW uses lr `5e-4`, halved every 300k TTL updates.
 - Single-3090 effective batch is 64 via `batch_size=32` and `grad_accum=2`.
+
+To verify the param count locally: `python -m training.scripts.count_params`.
 
 Known paper ambiguities or unavoidable differences:
 

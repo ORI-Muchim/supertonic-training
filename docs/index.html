@@ -195,6 +195,29 @@
     </tbody>
   </table>
 
+  <h3>Parameter count</h3>
+  <div class="sub">
+    This repo targets the <strong>paper-text 44 M baseline</strong>
+    (paper Table 5: #DP 0.5 M + #T2F 18.5 M + #F2S 25 M = #All 44 M).
+    The released Hugging Face ONNX is a wider <strong>65–66 M variant</strong>
+    of the same architecture (TextEncoder dim 256 vs paper 128;
+    VectorField dim 512 vs paper 256). Both code paths exist:
+    <code>train_ttl.py</code> defaults to the 44 M baseline;
+    <code>--shipped_dim</code> trains the 66 M variant.
+  </div>
+
+  <table>
+    <thead><tr><th></th><th>Paper baseline (default)</th><th>Shipped HF ONNX</th></tr></thead>
+    <tbody>
+      <tr><td>TextEncoder dim</td><td>128</td><td>256</td></tr>
+      <tr><td>VectorField dim</td><td>256</td><td>512</td></tr>
+      <tr><td>TTL params (TE+SE+VF)</td><td>~19 M</td><td>~40 M</td></tr>
+      <tr><td>Vocoder (= AE decoder)</td><td>25.3 M</td><td>25.3 M</td></tr>
+      <tr><td>DP</td><td>0.5 M</td><td>0.3 M</td></tr>
+      <tr><td><strong>Total (inference)</strong></td><td><strong>~45 M</strong></td><td><strong>~66 M</strong></td></tr>
+    </tbody>
+  </table>
+
   <h3>Key fix that unlocked Korean pronunciation</h3>
   <div class="note">
     The initial paper-spec port had <code>LARoPETextCrossAttention.theta</code> registered

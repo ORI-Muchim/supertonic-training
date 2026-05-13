@@ -13,6 +13,14 @@ The KSS single-speaker paper-faithful run is complete. The final TTL+DP stack
 produces intelligible Korean pronunciation on manual test sentences. This does
 not imply zero-shot voice cloning; zero-shot requires multi-speaker data.
 
+**Scale clarification:** this repo targets the **paper-text 44 M baseline**
+(paper Table 5: `#DP 0.5M + #T2F 18.5M + #F2S 25M = #All 44M`). The released
+Supertonic 2 Hugging Face ONNX is a wider **65–66 M variant** of the same
+architecture (TextEncoder dim 256 vs paper 128; VF dim 512 vs paper 256).
+Run `python -m training.scripts.count_params` to print both side-by-side.
+Use `train_ttl.py --shipped_dim` to train the 66 M variant instead of the
+default 44 M one.
+
 ## Current Local Artifacts
 
 Keep these:
