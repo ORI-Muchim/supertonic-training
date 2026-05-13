@@ -1,30 +1,34 @@
-"""End-to-end synth for paper-faithful Stage-2 (700k TTL) — no DP needed.
+"""End-to-end synth for paper-faithful Stage-2 (700k TTL) — optional DP.
 
 Loads:
   - AE decoder from AE ckpt
   - paper-faithful TextEncoderPaper, StyleEncoderTTLPaper, VectorField(dim=256, ...)
     + uncond_masker tokens from TTL ckpt
+  - optionally: DP ckpt (StyleEncoderDPPaper + DurationPredictor) for predicted duration
 
 Reference style:
   - Picks one utterance from the AE latent cache (default: idx 0)
   - Runs StyleEncoderTTLPaper over its full latent → [1, 50, 128] style_ttl
 
 Duration:
-  - DP not trained yet → uses heuristic: char_count × 0.07 s (KO).
-  - Override via --duration_sec.
+  - With --dp_ckpt: DP predicts utterance duration.
+  - Without --dp_ckpt: heuristic char_count × 0.18 s (KO) or --duration_sec.
 
-Inference:
-  - 5-step Euler ODE with classifier-free guidance (cfg_scale).
-  - Single joint uncond replacement (paper p_uncond=0.05 was joint).
+Inference defaults:
+  - cfg_scale = 1.0  — paper recommends 3.0, but this single-speaker model has a
+    tighter latent distribution and cfg=3 causes hard clipping (3.6% saturation
+    in test runs; see analysis/synth_blowup_analysis.py).
+  - total_step = 16 — better Euler ODE truncation than the 5-step default.
+  - Single joint uncond replacement (paper p_uncond=0.05).
 
 Usage:
   python -m training.scripts.synth_ttl_paper \
     --ae_ckpt  training/runs/ae_paper_audit_crop1s_mean/ckpt_step01500000.pt \
     --cache_dir training/runs/ae_paper_audit_crop1s_mean/cache \
-    --ttl_ckpt training/runs/ttl_paper_700k_paperfix2/ckpt_step00700000.pt \
+    --ttl_ckpt training/runs/ttl_paper_rope_b32a2/ckpt_step00700000.pt \
+    --dp_ckpt  training/runs/dp_paper_rope_3k/ckpt_step00003000.pt \
     --text "안녕하세요 슈퍼토닉 페이퍼 충실 합성 결과입니다" \
-    --ref_idx 0 --cfg_scale 3.0 --total_step 5 \
-    --out out_ttl_paper_700k.wav
+    --out out_ttl_paper.wav
 """
 from __future__ import annotations
 import os, sys, json, argparse
@@ -68,9 +72,12 @@ def _load_decoder(ae_ckpt: str, device: torch.device) -> AEDecoder:
 def _build_dp_models(dp_ckpt: str, device: torch.device):
     """Load DP + StyleEncoderDPPaper from a train_dp.py checkpoint.
     Default-trained DP uses shipped-authority 192-dim estimator (DurationPredictor).
+    attn_type ('rope' or 'relpos') is read from the checkpoint's saved cfg.
     """
     ck = torch.load(dp_ckpt, map_location=device, weights_only=False)
-    dp = DurationPredictor().to(device)                      # shipped 192-dim path
+    attn_type = ck.get("cfg", {}).get("attn_type", "relpos")
+    print(f"[info] DP attn_type from ckpt: {attn_type}")
+    dp = DurationPredictor(attn_type=attn_type).to(device)   # shipped 192-dim path
     se_dp = StyleEncoderDPPaper().to(device)                 # paper out_scale=1.0, [B,8,16]
     dp.load_state_dict(ck["dp"])
     se_dp.load_state_dict(ck["style_enc"])
@@ -192,8 +199,11 @@ def main():
     ap.add_argument("--ref_idx",  type=int, default=0)
     ap.add_argument("--duration_sec", type=float, default=None,
                     help="if omitted: heuristic char_count*0.07s (KO)")
-    ap.add_argument("--cfg_scale", type=float, default=3.0)
-    ap.add_argument("--total_step", type=int, default=5)
+    ap.add_argument("--cfg_scale", type=float, default=1.0,
+                    help="paper recommends 3.0 but this model's tighter latent distribution causes "
+                         "hard clipping at cfg>=3 (e.g. 3.6%% samples saturated at cfg=3); 1.0 is empirical sweet spot")
+    ap.add_argument("--total_step", type=int, default=16,
+                    help="paper Euler steps; 5 is fast/low-quality, 16 gives better ODE truncation")
     ap.add_argument("--dp_ckpt", default=None,
                     help="if provided, DP predicts duration (overrides --duration_sec/heuristic)")
     ap.add_argument("--out", default="out_ttl_paper.wav")
